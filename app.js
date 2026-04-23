@@ -584,11 +584,85 @@ function renderWeather(d) {
   document.getElementById('weatherDisplay').innerHTML = html;
 }
 
+// ---- Auto Fetch (GitHub Pages data/ folder) -------------
+async function loadAutoData() {
+  const statusEl = document.getElementById('autoFetchStatus');
+  statusEl.className = 'auto-status loading';
+  statusEl.textContent = '取得中...';
+
+  try {
+    const res = await fetch('./data/manifest.json', { cache: 'no-cache' });
+    if (!res.ok) throw new Error('まだデータが用意されていません');
+    const manifest = await res.json();
+
+    const updated = manifest.updated
+      ? new Date(manifest.updated).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })
+      : '-';
+
+    let loaded = 0;
+    for (const field of manifest.fields || []) {
+      try {
+        const csvRes = await fetch(`./data/${field.file}`, { cache: 'no-cache' });
+        if (!csvRes.ok) continue;
+        const text = await csvRes.text();
+        const { summary } = await parseCSVText(text, field.name);
+        state.fields[field.name] = summary;
+        loaded++;
+      } catch (_) {}
+    }
+
+    saveFields();
+    renderAll();
+
+    statusEl.className = 'auto-status ok';
+    statusEl.textContent = `✓ ${loaded}件取得済み（最終更新: ${updated}）`;
+  } catch (e) {
+    statusEl.className = 'auto-status err';
+    statusEl.textContent = `✗ ${e.message}`;
+  }
+}
+
+// テキストから直接パース（autoFetch用）
+async function parseCSVText(text, fieldName) {
+  return new Promise((resolve, reject) => {
+    Papa.parse(text, {
+      header: true, skipEmptyLines: true,
+      complete(res) {
+        const headers = res.meta.fields || [];
+        try {
+          if (RAW_COLUMNS.every(c => headers.includes(c))) {
+            resolve({ fieldName, summary: buildDailySummary(res.data, fieldName) });
+          } else {
+            resolve({ fieldName, summary: normalizeDailyCSV(res.data, headers, fieldName) });
+          }
+        } catch (e) { reject(e); }
+      },
+      error: e => reject(new Error(e.message)),
+    });
+  });
+}
+
 // ---- Init -----------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
   loadFields();
   initTabs();
   renderAll();
+
+  // 起動時に自動取得データの状態を確認
+  fetch('./data/manifest.json', { cache: 'no-cache' })
+    .then(r => r.ok ? r.json() : null)
+    .then(manifest => {
+      if (!manifest) return;
+      const statusEl = document.getElementById('autoFetchStatus');
+      const updated = manifest.updated
+        ? new Date(manifest.updated).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })
+        : '-';
+      statusEl.className = 'auto-status ok';
+      statusEl.textContent = `データあり（最終更新: ${updated}）`;
+    })
+    .catch(() => {});
+
+  document.getElementById('autoFetchBtn').addEventListener('click', loadAutoData);
 
   const csvInput = document.getElementById('csvInput');
   csvInput.addEventListener('change', e => { handleFiles(e.target.files); csvInput.value = ''; });

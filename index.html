@@ -25,12 +25,23 @@
 
   <!-- ===== ファイル管理 ===== -->
   <section id="tab-files" class="tab-content active">
+
+    <!-- 自動取得 -->
+    <div class="card">
+      <span class="card-label">Farmo 自動取得</span>
+      <div id="autoFetchStatus" class="auto-status">未取得</div>
+      <button class="btn-primary" id="autoFetchBtn" style="margin-bottom:0">最新データを取得</button>
+    </div>
+
+    <!-- 手動アップロード -->
+    <div class="section-divider">または手動でCSVをアップロード</div>
     <div class="upload-area">
       <div class="upload-icon">&#128193;</div>
       <p>タップしてCSVを選択</p>
       <p class="upload-sub">複数ファイル同時選択可</p>
       <input type="file" id="csvInput" accept=".csv" multiple>
     </div>
+
     <div id="uploadStatus"></div>
     <div id="fieldList"></div>
   </section>

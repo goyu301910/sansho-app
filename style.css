@@ -416,6 +416,38 @@ main { padding: 12px; max-width: 640px; margin: 0 auto; padding-bottom: 40px; }
 .forecast-bar-inner { height: 100%; border-radius: 3px; background: linear-gradient(to right, var(--blue), var(--red)); }
 .forecast-rain { width: 50px; text-align: right; color: var(--blue); font-size: 12px; }
 
+/* ===== Auto Fetch ===== */
+.auto-status {
+  font-size: 13px;
+  color: var(--text-sub);
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border-radius: 8px;
+}
+.auto-status.ok  { color: var(--green); background: var(--green-pale); }
+.auto-status.err { color: #b71c1c; background: #ffeaea; }
+.auto-status.loading { color: var(--blue); background: #e3f2fd; }
+
+.section-divider {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-sub);
+  margin: 12px 0 10px;
+  position: relative;
+}
+.section-divider::before,
+.section-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 30%;
+  height: 1px;
+  background: var(--border);
+}
+.section-divider::before { left: 0; }
+.section-divider::after  { right: 0; }
+
 .hint { font-size: 11px; color: var(--text-sub); margin-top: 6px; line-height: 1.5; }
 .loading { text-align: center; padding: 24px; color: var(--text-sub); font-size: 14px; }
 .error-card {
