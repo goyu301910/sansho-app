@@ -20,11 +20,7 @@ session.headers.update({
     "Accept-Language": "ja,en-US;q=0.9",
 })
 
-for item in COOKIE.split(";"):
-    item = item.strip()
-    if "=" in item:
-        name, _, value = item.partition("=")
-        session.cookies.set(name.strip(), value.strip(), domain="farmo.tech")
+session.cookies.set("pc_user_device_id", COOKIE.strip(), domain="farmo.tech")
 
 
 def check_login():
