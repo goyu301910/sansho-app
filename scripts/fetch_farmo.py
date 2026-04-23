@@ -20,7 +20,11 @@ session.headers.update({
     "Accept-Language": "ja,en-US;q=0.9",
 })
 
-session.cookies.set("pc_user_device_id", COOKIE.strip(), domain="farmo.tech")
+# "pc_user_device_id=値" でも "値" だけでも両方対応
+_cookie_val = COOKIE.strip()
+if "=" in _cookie_val:
+    _cookie_val = _cookie_val.split("=", 1)[1]
+session.cookies.set("pc_user_device_id", _cookie_val, domain="farmo.tech")
 
 
 def check_login():
