@@ -1,18 +1,17 @@
 """
 Farmo CSV 自動取得スクリプト
 GitHub Actions から実行される
-環境変数: FARMO_COOKIE (pc_user_device_id=... の形式)
+環境変数: FARMO_COOKIE (pc_user_device_id の値)
 """
 import os
-import re
 import json
 import requests
-from bs4 import BeautifulSoup
 from datetime import datetime, timezone
 
 COOKIE   = os.environ["FARMO_COOKIE"]
 BASE_URL = "https://farmo.tech/pc"
 DATA_DIR = "data"
+FIELDS_FILE = os.path.join(DATA_DIR, "fields.json")
 
 session = requests.Session()
 session.headers.update({
@@ -21,7 +20,6 @@ session.headers.update({
     "Accept-Language": "ja,en-US;q=0.9",
 })
 
-# Cookie をセッションに設定
 for item in COOKIE.split(";"):
     item = item.strip()
     if "=" in item:
@@ -38,31 +36,6 @@ def check_login():
             "ブラウザから最新の pc_user_device_id を取得して GitHub Secrets を更新してください。"
         )
     print("認証確認OK")
-    return resp
-
-
-def get_fields(resp):
-    # update_index.php を試す
-    r = session.get(f"{BASE_URL}/update_index.php", timeout=30)
-    print(f"[DEBUG] update_index.php status: {r.status_code}")
-    print(f"[DEBUG] update_index.php content:\n{r.text[:1000]}")
-
-    # HTML全体からsid=を探す
-    all_sids = re.findall(r"sid=([a-zA-Z0-9]+)", resp.text + r.text)
-    print(f"[DEBUG] 発見したSID一覧: {list(set(all_sids))}")
-
-    fields = {}
-    soup = BeautifulSoup(resp.text, "html.parser")
-    for a in soup.find_all("a", href=True):
-        m = re.search(r"sid=([a-zA-Z0-9]+)", a["href"])
-        if not m:
-            continue
-        sid  = m.group(1)
-        name = a.get_text(strip=True)
-        if name and len(name) >= 2 and sid not in fields:
-            fields[sid] = name
-    print(f"圃場数: {len(fields)}")
-    return fields
 
 
 def fetch_csv(sid):
@@ -75,19 +48,21 @@ def fetch_csv(sid):
 def main():
     os.makedirs(DATA_DIR, exist_ok=True)
 
-    resp   = check_login()
-    fields = get_fields(resp)
+    check_login()
 
-    if not fields:
-        print("圃場が見つかりませんでした")
-        return
+    with open(FIELDS_FILE, encoding="utf-8") as f:
+        fields = json.load(f)
+
+    print(f"圃場数: {len(fields)}")
 
     manifest = {
         "updated": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "fields":  [],
     }
 
-    for sid, name in fields.items():
+    for field in fields:
+        sid  = field["sid"]
+        name = field["name"]
         try:
             content  = fetch_csv(sid)
             filename = f"{sid}.csv"
