@@ -20,11 +20,13 @@ session.headers.update({
     "Accept-Language": "ja,en-US;q=0.9",
 })
 
-# "pc_user_device_id=値" でも "値" だけでも両方対応
-_cookie_val = COOKIE.strip()
-if "=" in _cookie_val:
-    _cookie_val = _cookie_val.split("=", 1)[1]
-session.cookies.set("pc_user_device_id", _cookie_val, domain="farmo.tech")
+import re as _re
+# 空白・制御文字を除去し、name=value形式なら値だけ取り出す
+_cookie_val = _re.sub(r'[\x00-\x1f\x7f\s]', '', COOKIE)
+if _cookie_val.lower().startswith('pc_user_device_id='):
+    _cookie_val = _cookie_val.split('=', 1)[1]
+# Cookie ヘッダーとして直接セット（cookie jar を使わない）
+session.headers['Cookie'] = f'pc_user_device_id={_cookie_val}'
 
 
 def check_login():
