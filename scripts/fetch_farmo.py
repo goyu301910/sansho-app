@@ -42,6 +42,13 @@ def check_login():
 
 
 def get_fields(resp):
+    print(f"[DEBUG] メインページURL: {resp.url}")
+    print(f"[DEBUG] HTML冒頭500文字:\n{resp.text[:500]}")
+    print(f"[DEBUG] sid= を含む行:")
+    for line in resp.text.splitlines():
+        if "sid=" in line:
+            print(f"  {line.strip()[:200]}")
+
     soup = BeautifulSoup(resp.text, "html.parser")
     fields = {}
     for a in soup.find_all("a", href=True):
