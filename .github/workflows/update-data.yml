@@ -25,8 +25,7 @@ jobs:
 
       - name: Farmo からCSVを取得
         env:
-          FARMO_EMAIL:    ${{ secrets.FARMO_EMAIL }}
-          FARMO_PASSWORD: ${{ secrets.FARMO_PASSWORD }}
+          FARMO_COOKIE: ${{ secrets.FARMO_COOKIE }}
         run: python scripts/fetch_farmo.py
 
       - name: 変更をコミット・プッシュ
