@@ -16,10 +16,17 @@ BASE_URL = "https://farmo.tech/pc"
 DATA_DIR = "data"
 
 session = requests.Session()
-session.headers.update({"User-Agent": "Mozilla/5.0 (compatible; FarmoFetcher/1.0)"})
+session.headers.update({
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "ja,en-US;q=0.9",
+})
 
 
 def login():
+    # ログインページを先に取得（Cookieとhidden fieldを拾うため）
+    session.get(f"{BASE_URL}/login.php", timeout=30)
+
     resp = session.post(
         f"{BASE_URL}/login_process.php",
         data={
@@ -27,6 +34,7 @@ def login():
             "login_email": EMAIL,
             "login_pass":  PASSWORD,
         },
+        headers={"Referer": f"{BASE_URL}/login.php"},
         allow_redirects=True,
         timeout=30,
     )
