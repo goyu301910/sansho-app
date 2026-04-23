@@ -1,0 +1,74 @@
+
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Cache-Control" content="no-cache">
+<link rel="shortcut icon" href="images/favicon.ico">
+<link rel="stylesheet" href="./css/styles.css?date=20220219163626" />
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-135556321-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-135556321-1');
+</script>
+
+
+<!-- SweetAlert2 css-->
+<link rel="stylesheet" href="./css/sweetalert2.min.css" />
+
+<!-- jQuery -->
+<script src="//ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<!-- ImgLiquid -->
+<script src="./js/imgLiquid-min.js"></script>
+<!-- SweetAlert2 -->
+<script src="./js/sweetalert2.min.js"></script>
+
+<script>
+  $(function(){
+
+      //hidden判定
+      $.fn.isVisible = function() {
+          return $.expr.filters.visible(this[0]);
+      };
+
+  })
+</script>
+<title>farmo管理ページ</title>
+
+  <script src="./js/login.js"></script>
+</head>
+<body class="bg03">
+<div id="container">
+    <div id="header">
+    <div id="header-menu">
+      <a href="information.php">お知らせ</a>
+      <!-- <a href="guide.php">利用の仕方</a> -->
+      <a href="logout.php">ログアウト</a>
+    </div>
+    <div id="header-logo">
+      <a href="index.php"><img src="./images/logo.png"></a>
+    </div>
+  </div>  <br>
+  <br>
+  <br>
+  <br>
+  <br>
+  <div id="login">
+    <h1>ログイン</h1>
+          登録したメールアドレス、パスワードでログインしてください
+    <input type="text" name="login_email" placeholder="メールアドレス">
+    <input type="password" name="login_password" placeholder="パスワード">
+    <input class="button01" type="submit" value="ログイン" onClick="PC_User_Login();">
+    <a href="regist.php">新規登録（初めての方）</a>　｜　
+    <a href="reminder.php">パスワードを忘れた場合</a>
+  </div>
+</div>
+</body>
+</html>
