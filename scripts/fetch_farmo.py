@@ -24,16 +24,26 @@ session.headers.update({
 
 
 def login():
-    # ログインページを先に取得（Cookieとhidden fieldを拾うため）
-    session.get(f"{BASE_URL}/login.php", timeout=30)
+    # ログインページを取得してhidden fieldを探す
+    login_page = session.get(f"{BASE_URL}/login.php", timeout=30)
+    soup = BeautifulSoup(login_page.text, "html.parser")
+    hidden_fields = {
+        inp["name"]: inp.get("value", "")
+        for inp in soup.find_all("input", type="hidden")
+        if inp.get("name")
+    }
+    print(f"[DEBUG] hidden fields: {hidden_fields}")
+
+    post_data = {
+        "mode":        "login_pc_user",
+        "login_email": EMAIL,
+        "login_pass":  PASSWORD,
+    }
+    post_data.update(hidden_fields)
 
     resp = session.post(
         f"{BASE_URL}/login_process.php",
-        data={
-            "mode":        "login_pc_user",
-            "login_email": EMAIL,
-            "login_pass":  PASSWORD,
-        },
+        data=post_data,
         headers={"Referer": f"{BASE_URL}/login.php"},
         allow_redirects=True,
         timeout=30,
