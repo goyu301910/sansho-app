@@ -1,0 +1,274 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+  <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Cache-Control" content="no-cache">
+<link rel="shortcut icon" href="images/favicon.ico">
+<link rel="stylesheet" href="./css/styles.css?date=20220219163626" />
+
+<!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-135556321-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-135556321-1');
+</script>
+
+
+<!-- SweetAlert2 css-->
+<link rel="stylesheet" href="./css/sweetalert2.min.css" />
+
+<!-- jQuery -->
+<script src="//ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<!-- ImgLiquid -->
+<script src="./js/imgLiquid-min.js"></script>
+<!-- SweetAlert2 -->
+<script src="./js/sweetalert2.min.js"></script>
+
+<script>
+  $(function(){
+
+      //hidden判定
+      $.fn.isVisible = function() {
+          return $.expr.filters.visible(this[0]);
+      };
+
+  })
+</script>
+<title>farmo管理ページ</title>
+
+  <link rel="stylesheet" href="./css/fakeLoader.css">
+  <script src="//cdnjs.cloudflare.com/ajax/libs/Chart.js/2.7.3/Chart.bundle.min.js"></script>
+  <script src="./js/summary.js?date=20220317140644"></script>
+  <script src="./js/common.js"></script>
+</head>
+<body>
+<div id="container">
+
+    <div id="header">
+    <div id="header-menu">
+      <a href="information.php">お知らせ</a>
+      <!-- <a href="guide.php">利用の仕方</a> -->
+      <a href="logout.php">ログアウト</a>
+    </div>
+    <div id="header-logo">
+      <a href="index.php"><img src="./images/logo.png"></a>
+    </div>
+  </div>  
+<div id="menu" style="overflow: auto; padding-bottom: 30px;">
+  <ul>
+    <li>
+      <a class="menu-on" href="./">圃場一覧</a>
+      <ul>
+        <li><a href="./summary.php?sid=gmw34c" class="">岩本さん園地2(不良)下</a></li>
+<li><a href="./summary.php?sid=gma1st" class="">岩本さん園地1(良好)上</a></li>
+<li><a href="./summary.php?sid=gm0ruk" class="">森本さん園地2(良好)下</a></li>
+<li><a href="./summary.php?sid=gm1126" class="menu-on">森本さん園地1(不良)上</a></li>
+<li><a href="./summary.php?sid=gmhk7u" class="">河田様 水田付近</a></li>
+<li><a href="./summary.php?sid=gm2svn" class="">國和産業様山椒圃場</a></li>
+<li><a href="./summary.php?sid=gmyyyu" class="">大森さん山椒圃場</a></li>
+<li><a href="./summary.php?sid=gm4mn6" class="">川上会長山椒圃場</a></li>
+<li><a href="./summary.php?sid=gm23rh" class="">河田さん山椒圃場</a></li>
+      </ul>
+    </li>
+    <li>
+      <a class="" href="alert.php">注意情報</a>
+    </li>
+    <li>
+      <a class="" href="regist_farm.php">圃場の追加</a>
+    </li>
+    <li>
+      <a class="" href="account.php">登録情報</a>
+    </li>
+  </ul>
+</div>
+  <div id="wrapper2">
+    <h1>CSVダウンロード</h1>
+    <div id="edit-display">
+      <h2>森本さん園地1(不良)上</h2>
+      <div class="text-alert01" style=""></div>
+      <div class="edit-number">
+        ＜製品ID：gm1126＞
+      </div>
+
+      <div class="content04">
+        1. 表示する期間を選択してください。
+        <!--
+        表示する期間と項目と選択して、「CSVダウンロード」ボタンを押してください。<br>
+        データを集計したCSVファイルが作成され、ダウンロードが開始されます。
+        -->
+      </div>
+      <div class="table">
+        <div class="cell">
+          <!-- <select name="start_year" onchange="Get_SelectDay('start');"> -->
+          <select name="start_year">
+            <option value="2019" >2019年</option>
+<option value="2020" >2020年</option>
+<option value="2021" >2021年</option>
+<option value="2022" >2022年</option>
+<option value="2023" >2023年</option>
+<option value="2024" >2024年</option>
+<option value="2025" >2025年</option>
+<option value="2026" selected>2026年</option>
+          </select>
+        </div>
+        <div class="cell">
+          <!-- <select name="start_month" onchange="Get_SelectDay('start');"> -->
+          <select name="start_month">
+            <option value="01" >1月</option>
+<option value="02" >2月</option>
+<option value="03" >3月</option>
+<option value="04" selected>4月</option>
+<option value="05" >5月</option>
+<option value="06" >6月</option>
+<option value="07" >7月</option>
+<option value="08" >8月</option>
+<option value="09" >9月</option>
+<option value="10" >10月</option>
+<option value="11" >11月</option>
+<option value="12" >12月</option>
+          </select>
+        </div>
+        <div class="cell">
+          <select name="start_day">
+            <option value="01" >1日</option>
+<option value="02" >2日</option>
+<option value="03" >3日</option>
+<option value="04" >4日</option>
+<option value="05" >5日</option>
+<option value="06" >6日</option>
+<option value="07" >7日</option>
+<option value="08" >8日</option>
+<option value="09" >9日</option>
+<option value="10" >10日</option>
+<option value="11" >11日</option>
+<option value="12" >12日</option>
+<option value="13" >13日</option>
+<option value="14" >14日</option>
+<option value="15" >15日</option>
+<option value="16" >16日</option>
+<option value="17" >17日</option>
+<option value="18" >18日</option>
+<option value="19" >19日</option>
+<option value="20" >20日</option>
+<option value="21" >21日</option>
+<option value="22" >22日</option>
+<option value="23" selected>23日</option>
+<option value="24" >24日</option>
+<option value="25" >25日</option>
+<option value="26" >26日</option>
+<option value="27" >27日</option>
+<option value="28" >28日</option>
+<option value="29" >29日</option>
+<option value="30" >30日</option>
+<option value="31" >31日</option>
+          </select>
+        </div>
+
+        <div class="cell" style="text-align: center;">
+          ～
+        </div>
+
+        <div class="cell">
+          <!-- <select name="end_year" onchange="Get_SelectDay('end');"> -->
+          <select name="end_year">
+            <option value="2019" >2019年</option>
+<option value="2020" >2020年</option>
+<option value="2021" >2021年</option>
+<option value="2022" >2022年</option>
+<option value="2023" >2023年</option>
+<option value="2024" >2024年</option>
+<option value="2025" >2025年</option>
+<option value="2026" selected>2026年</option>
+          </select>
+        </div>
+        <div class="cell">
+          <!-- <select name="end_month" onchange="Get_SelectDay('end');"> -->
+          <select name="end_month">
+            <option value="01" >1月</option>
+<option value="02" >2月</option>
+<option value="03" >3月</option>
+<option value="04" selected>4月</option>
+<option value="05" >5月</option>
+<option value="06" >6月</option>
+<option value="07" >7月</option>
+<option value="08" >8月</option>
+<option value="09" >9月</option>
+<option value="10" >10月</option>
+<option value="11" >11月</option>
+<option value="12" >12月</option>
+          </select>
+        </div>
+        <div class="cell">
+          <select name="end_day">
+            <option value="01" >1日</option>
+<option value="02" >2日</option>
+<option value="03" >3日</option>
+<option value="04" >4日</option>
+<option value="05" >5日</option>
+<option value="06" >6日</option>
+<option value="07" >7日</option>
+<option value="08" >8日</option>
+<option value="09" >9日</option>
+<option value="10" >10日</option>
+<option value="11" >11日</option>
+<option value="12" >12日</option>
+<option value="13" >13日</option>
+<option value="14" >14日</option>
+<option value="15" >15日</option>
+<option value="16" >16日</option>
+<option value="17" >17日</option>
+<option value="18" >18日</option>
+<option value="19" >19日</option>
+<option value="20" >20日</option>
+<option value="21" >21日</option>
+<option value="22" >22日</option>
+<option value="23" selected>23日</option>
+<option value="24" >24日</option>
+<option value="25" >25日</option>
+<option value="26" >26日</option>
+<option value="27" >27日</option>
+<option value="28" >28日</option>
+<option value="29" >29日</option>
+<option value="30" >30日</option>
+<option value="31" >31日</option>
+          </select>
+        </div>
+      </div>
+      <br><br>
+      <div class="content04">
+        2. 表示する項目を選択してください。
+        <!--
+        表示する期間と項目と選択して、「CSVダウンロード」ボタンを押してください。<br>
+        データを集計したCSVファイルが作成され、ダウンロードが開始されます。
+        -->
+      </div>
+
+      <div class="content01" style="text-align: center;">
+          
+  <input id="check_temperature" type="checkbox" name="check_item" value="temperature"> <label for="check_temperature">気温</label>　  
+  <input id="check_underground" type="checkbox" name="check_item" value="underground"> <label for="check_underground">地中温度</label>　  
+  <input id="check_vwc" type="checkbox" name="check_item" value="vwc"> <label for="check_vwc">土壌水分</label>　  
+  <input id="check_illuminance" type="checkbox" name="check_item" value="illuminance"> <label for="check_illuminance">照度</label>　  
+  <input id="check_ec" type="checkbox" name="check_item" value="ec"> <label for="check_ec">EC</label>　      </div>
+
+      <div class="content04">
+        3. 内容を確認の上、「ダウンロード」ボタンを押してください。<br>CSVファイルのダウンロードが開始されます。
+      </div>
+
+      <a class="button01" href="javascript:void(0);" onClick="Create_CSV('gm1126');">ダウンロード</a>
+
+      <div id="download_link_content" style="display: none;">
+        <a id="download_link" href="#" download=""></a>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>
+
