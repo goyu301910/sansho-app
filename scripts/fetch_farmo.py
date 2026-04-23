@@ -37,6 +37,11 @@ def check_login():
             "Cookieが無効または期限切れです。"
             "ブラウザから最新の pc_user_device_id を取得して GitHub Secrets を更新してください。"
         )
+    # サーバーが発行したセッションCookieをヘッダーに追加
+    if resp.cookies:
+        extra = '; '.join(f'{k}={v}' for k, v in resp.cookies.items())
+        session.headers['Cookie'] += f'; {extra}'
+        print(f"セッションCookie追加: {list(resp.cookies.keys())}")
     print("認証確認OK")
 
 
