@@ -23,7 +23,7 @@ def login():
     resp = session.post(
         f"{BASE_URL}/login_process.php",
         data={
-            "login_pc_user": "1",
+            "login_pc_user": "",
             "login_email": EMAIL,
             "login_pass": PASSWORD,
         },
@@ -31,7 +31,8 @@ def login():
         timeout=30,
     )
     resp.raise_for_status()
-    if "login" in resp.url:
+    # ログアウトリンクがあればログイン成功
+    if "ログアウト" not in resp.text and "logout" not in resp.text.lower():
         raise RuntimeError("ログインに失敗しました。メールアドレス・パスワードを確認してください。")
     print("ログイン成功")
 
