@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>山椒 圃場モニター</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+</head>
+<body>
+
+<header>
+  <h1>山椒 圃場モニター</h1>
+</header>
+
+<nav class="tabs">
+  <button class="tab-btn active" data-tab="files">ファイル</button>
+  <button class="tab-btn" data-tab="compare">圃場比較</button>
+  <button class="tab-btn" data-tab="weather">気象情報</button>
+</nav>
+
+<main>
+
+  <!-- ===== ファイル管理 ===== -->
+  <section id="tab-files" class="tab-content active">
+    <div class="upload-area">
+      <div class="upload-icon">&#128193;</div>
+      <p>タップしてCSVを選択</p>
+      <p class="upload-sub">複数ファイル同時選択可</p>
+      <input type="file" id="csvInput" accept=".csv" multiple>
+    </div>
+    <div id="uploadStatus"></div>
+    <div id="fieldList"></div>
+  </section>
+
+  <!-- ===== 圃場比較 ===== -->
+  <section id="tab-compare" class="tab-content">
+
+    <div class="card">
+      <span class="card-label">期間指定</span>
+      <div class="date-row">
+        <input type="date" id="startDate">
+        <span class="date-sep">〜</span>
+        <input type="date" id="endDate">
+      </div>
+    </div>
+
+    <div class="card">
+      <span class="card-label">日付整合モード</span>
+      <div class="radio-group">
+        <label class="radio-item">
+          <input type="radio" name="alignMode" value="common" checked>
+          <span>共通期間のみ</span>
+        </label>
+        <label class="radio-item">
+          <input type="radio" name="alignMode" value="interpolate">
+          <span>欠損日を補間</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <span class="card-label">圃場を選択</span>
+      <div id="fieldCheckboxes">
+        <p class="empty-msg">まずCSVファイルを読み込んでください</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="metric-header">
+        <span class="card-label">表示項目（複数選択可）</span>
+        <div class="metric-actions">
+          <button class="btn-text" id="checkAllMetrics">全選択</button>
+          <span class="sep-text">|</span>
+          <button class="btn-text" id="uncheckAllMetrics">解除</button>
+        </div>
+      </div>
+      <div id="metricCheckboxes">
+        <p class="empty-msg">まずCSVファイルを読み込んでください</p>
+      </div>
+    </div>
+
+    <button class="btn-primary" id="analyzeBtn">分析・グラフ表示</button>
+
+    <div id="chartsContainer"></div>
+
+    <div id="previewSection"></div>
+
+  </section>
+
+  <!-- ===== 気象情報 ===== -->
+  <section id="tab-weather" class="tab-content">
+    <div class="card">
+      <span class="card-label">圃場の場所（緯度・経度）</span>
+      <div class="location-row">
+        <div class="location-input">
+          <label>緯度</label>
+          <input type="number" id="lat" value="34.23" step="0.01" min="-90" max="90">
+        </div>
+        <div class="location-input">
+          <label>経度</label>
+          <input type="number" id="lon" value="135.17" step="0.01" min="-180" max="180">
+        </div>
+      </div>
+      <p class="hint">※ Googleマップで圃場を長押し or 右クリックすると座標が確認できます</p>
+      <button class="btn-secondary" id="fetchWeatherBtn">気象情報を取得</button>
+    </div>
+    <div id="weatherDisplay"></div>
+  </section>
+
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>
