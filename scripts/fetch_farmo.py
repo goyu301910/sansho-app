@@ -31,6 +31,8 @@ def login():
         timeout=30,
     )
     resp.raise_for_status()
+    print(f"[DEBUG] ログイン後URL: {resp.url}")
+    print(f"[DEBUG] レスポンス冒頭: {resp.text[:500]}")
     # ログアウトリンクがあればログイン成功
     if "ログアウト" not in resp.text and "logout" not in resp.text.lower():
         raise RuntimeError("ログインに失敗しました。メールアドレス・パスワードを確認してください。")
