@@ -23,9 +23,9 @@ def login():
     resp = session.post(
         f"{BASE_URL}/login_process.php",
         data={
-            "login_pc_user": "",
+            "mode":        "login_pc_user",
             "login_email": EMAIL,
-            "login_pass": PASSWORD,
+            "login_pass":  PASSWORD,
         },
         allow_redirects=True,
         timeout=30,
