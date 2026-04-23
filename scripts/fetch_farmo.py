@@ -42,15 +42,17 @@ def check_login():
 
 
 def get_fields(resp):
-    print(f"[DEBUG] メインページURL: {resp.url}")
-    print(f"[DEBUG] HTML冒頭500文字:\n{resp.text[:500]}")
-    print(f"[DEBUG] sid= を含む行:")
-    for line in resp.text.splitlines():
-        if "sid=" in line:
-            print(f"  {line.strip()[:200]}")
+    # update_index.php を試す
+    r = session.get(f"{BASE_URL}/update_index.php", timeout=30)
+    print(f"[DEBUG] update_index.php status: {r.status_code}")
+    print(f"[DEBUG] update_index.php content:\n{r.text[:1000]}")
 
-    soup = BeautifulSoup(resp.text, "html.parser")
+    # HTML全体からsid=を探す
+    all_sids = re.findall(r"sid=([a-zA-Z0-9]+)", resp.text + r.text)
+    print(f"[DEBUG] 発見したSID一覧: {list(set(all_sids))}")
+
     fields = {}
+    soup = BeautifulSoup(resp.text, "html.parser")
     for a in soup.find_all("a", href=True):
         m = re.search(r"sid=([a-zA-Z0-9]+)", a["href"])
         if not m:
