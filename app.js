@@ -604,11 +604,22 @@ async function loadAutoData() {
       try {
         const csvRes = await fetch(`./data/${field.file}`, { cache: 'no-cache' });
         if (!csvRes.ok) continue;
-        const text = await csvRes.text();
+        // Shift-JIS対応：ArrayBufferで受け取りデコード
+        const buf = await csvRes.arrayBuffer();
+        let text = '';
+        for (const enc of ['shift-jis', 'utf-8-sig', 'utf-8']) {
+          try {
+            const decoded = new TextDecoder(enc).decode(buf);
+            if (/気温|年|日付/.test(decoded)) { text = decoded; break; }
+          } catch (_) {}
+        }
+        if (!text) text = new TextDecoder('utf-8', { fatal: false }).decode(buf);
         const { summary } = await parseCSVText(text, field.name);
-        state.fields[field.name] = summary;
-        loaded++;
-      } catch (_) {}
+        if (summary.length > 0) {
+          state.fields[field.name] = summary;
+          loaded++;
+        }
+      } catch (e) { console.warn(field.name, e); }
     }
 
     saveFields();
