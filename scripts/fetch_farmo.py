@@ -47,8 +47,12 @@ def check_login():
 
 def fetch_csv(sid):
     url  = f"{BASE_URL}/summary_csv.php?sid={sid}"
-    resp = session.get(url, timeout=30)
+    resp = session.get(url, timeout=30, headers={"Referer": f"{BASE_URL}/"})
     resp.raise_for_status()
+    preview = resp.content[:100]
+    print(f"    [DEBUG] {sid} 先頭: {preview}")
+    if b'<!DOCTYPE' in preview or b'<html' in preview:
+        raise ValueError("HTMLが返されました（認証失敗）")
     return resp.content
 
 
