@@ -139,13 +139,17 @@
       </div>
     </div>
 
-    <div class="month-nav-bar">
-      <button class="month-nav-btn" id="prevMonthBtn">&#9664;</button>
-      <span class="month-nav-label" id="monthNavLabel">2026年4月</span>
-      <button class="month-nav-btn" id="nextMonthBtn">&#9654;</button>
+    <div class="card">
+      <span class="card-label">比較期間</span>
+      <div class="date-row">
+        <input type="date" id="yearlyStartDate">
+        <span class="date-sep">〜</span>
+        <input type="date" id="yearlyEndDate">
+      </div>
+      <p class="hint" id="yearlyHint"></p>
     </div>
 
-    <button class="btn-primary" id="yearlyAnalyzeBtn">前年と比較</button>
+    <button class="btn-primary" id="yearlyAnalyzeBtn">前年同期間と比較</button>
 
     <div id="yearlyChartContainer"></div>
     <div id="yearlyInfo"></div>
@@ -174,6 +178,6 @@
 
 </main>
 
-<script src="app.js"></script>
+<script src="app.js?v=2"></script>
 </body>
 </html>
