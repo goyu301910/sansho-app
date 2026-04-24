@@ -18,6 +18,7 @@
 <nav class="tabs">
   <button class="tab-btn active" data-tab="files">ファイル</button>
   <button class="tab-btn" data-tab="compare">圃場比較</button>
+  <button class="tab-btn" data-tab="yearly">前年比較</button>
   <button class="tab-btn" data-tab="weather">気象情報</button>
 </nav>
 
@@ -118,6 +119,36 @@
     <div id="chartsContainer"></div>
 
     <div id="previewSection"></div>
+
+  </section>
+
+  <!-- ===== 前年比較 ===== -->
+  <section id="tab-yearly" class="tab-content">
+
+    <div class="card">
+      <span class="card-label">圃場</span>
+      <div id="yearlyFieldSelect">
+        <p class="empty-msg">まずデータを読み込んでください</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <span class="card-label">指標</span>
+      <div id="yearlyMetricSelect">
+        <p class="empty-msg">まずデータを読み込んでください</p>
+      </div>
+    </div>
+
+    <div class="month-nav-bar">
+      <button class="month-nav-btn" id="prevMonthBtn">&#9664;</button>
+      <span class="month-nav-label" id="monthNavLabel">2026年4月</span>
+      <button class="month-nav-btn" id="nextMonthBtn">&#9654;</button>
+    </div>
+
+    <button class="btn-primary" id="yearlyAnalyzeBtn">前年と比較</button>
+
+    <div id="yearlyChartContainer"></div>
+    <div id="yearlyInfo"></div>
 
   </section>
 
