@@ -937,7 +937,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // 前年比較: デフォルト日付（今月1日〜今日）
   const _today = new Date();
   const _firstOfMonth = new Date(_today.getFullYear(), _today.getMonth(), 1);
-  const _fmtDate = d => d.toISOString().slice(0, 10);
+  const _fmtDate = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   document.getElementById('yearlyStartDate').value = _fmtDate(_firstOfMonth);
   document.getElementById('yearlyEndDate').value   = _fmtDate(_today);
   updateYearlyHint();
