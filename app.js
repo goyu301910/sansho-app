@@ -643,12 +643,15 @@ function runYearlyAnalysis() {
     return;
   }
 
-  // X軸: 月/日 で揃えるため基準年2000に統一
-  const toRef = dateStr => '2000-' + dateStr.slice(5);
+  // X軸: 前年データを+1年シフトして今年の日付に揃える（年またぎ対応）
+  const shiftFwd = dateStr => {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return `${y + 1}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  };
 
-  const makeDataset = (computedRows, label, color, dashed) => ({
+  const makeDataset = (computedRows, label, color, dashed, isLastYear) => ({
     label,
-    data: computedRows.map(r => ({ x: toRef(r.日付), y: r[metric] })),
+    data: computedRows.map(r => ({ x: isLastYear ? shiftFwd(r.日付) : r.日付, y: r[metric] })),
     borderColor: color,
     backgroundColor: color + '22',
     borderWidth: dashed ? 2 : 3,
@@ -661,8 +664,8 @@ function runYearlyAnalysis() {
   });
 
   const datasets = [];
-  if (thisComputed.length) datasets.push(makeDataset(thisComputed, `${thisYear}年（今年）`, '#3a7d44', false));
-  if (lastComputed.length) datasets.push(makeDataset(lastComputed, `${lastYear}年（前年）`, '#aaaaaa', true));
+  if (thisComputed.length) datasets.push(makeDataset(thisComputed, `${thisYear}年（今年）`, '#3a7d44', false, false));
+  if (lastComputed.length) datasets.push(makeDataset(lastComputed, `${lastYear}年（前年）`, '#aaaaaa', true, true));
 
   const container = document.getElementById('yearlyChartContainer');
   container.innerHTML = '<div class="yearly-chart-wrap"><canvas id="yearlyCanvas"></canvas></div>';
