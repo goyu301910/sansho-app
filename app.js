@@ -889,18 +889,8 @@ document.addEventListener('DOMContentLoaded', () => {
   renderAll();
 
   // 起動時に自動取得データの状態を確認
-  fetch('./data/manifest.json', { cache: 'no-cache' })
-    .then(r => r.ok ? r.json() : null)
-    .then(manifest => {
-      if (!manifest) return;
-      const statusEl = document.getElementById('autoFetchStatus');
-      const updated = manifest.updated
-        ? new Date(manifest.updated).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })
-        : '-';
-      statusEl.className = 'auto-status ok';
-      statusEl.textContent = `データあり（最終更新: ${updated}）`;
-    })
-    .catch(() => {});
+  // 起動時に自動でデータを読み込む
+  loadAutoData();
 
   document.getElementById('autoFetchBtn').addEventListener('click', loadAutoData);
 
