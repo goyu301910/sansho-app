@@ -419,8 +419,8 @@ function updateChartView() {
   document.getElementById('nextChartBtn').disabled = idx === metrics.length - 1;
   document.querySelectorAll('.chart-dot').forEach((d, i) => d.classList.toggle('active', i === idx));
 
-  // グラフをリサイズ（非表示→表示切替後に必要）
-  state.charts[idx]?.resize();
+  // DOMが描画された後にリサイズ
+  requestAnimationFrame(() => state.charts[idx]?.resize());
 }
 
 function navigateChart(delta) {

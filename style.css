@@ -305,16 +305,28 @@ main { padding: 12px; max-width: 640px; margin: 0 auto; padding-bottom: 40px; }
 .btn-download:active { background: var(--green-pale); }
 
 /* ===== Charts ===== */
+/* chartsContainer は高さを持つ相対位置コンテナ */
+#chartsContainer {
+  position: relative;
+  min-height: 360px;
+  margin-bottom: 12px;
+}
+
 .chart-block {
-  display: none;
+  position: absolute;
+  inset: 0;
   background: var(--card);
   border-radius: var(--radius);
   padding: 12px 10px 14px;
-  margin-bottom: 12px;
   box-shadow: var(--shadow);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s;
 }
-.chart-block.active { display: block; }
-.chart-block canvas { height: 300px !important; }
+.chart-block.active {
+  opacity: 1;
+  pointer-events: auto;
+}
 
 /* ===== Chart Navigator ===== */
 .chart-nav-bar {
