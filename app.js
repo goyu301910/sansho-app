@@ -561,16 +561,11 @@ async function handleFiles(files) {
 }
 
 // ---- 前年比較 -------------------------------------------
-const yearlyState = {
-  chart: null,
-  year: new Date().getFullYear(),
-  month: new Date().getMonth() + 1,
-};
+const yearlyState = { chart: null };
 
 function renderYearlySelectors() {
   const fieldNames = Object.keys(state.fields);
 
-  // 圃場セレクト（ラジオ）
   const fEl = document.getElementById('yearlyFieldSelect');
   if (!fieldNames.length) {
     fEl.innerHTML = '<p class="empty-msg">まずデータを読み込んでください</p>';
@@ -584,11 +579,11 @@ function renderYearlySelectors() {
       <span class="cb-label">${esc(n)}</span>
     </label>`).join('');
 
-  // 指標セレクト（ラジオ）
   const mEl = document.getElementById('yearlyMetricSelect');
+  const available = getAvailableMetrics().filter(m => m !== 'データ数');
   const DEFAULT = '平均気温';
   mEl.innerHTML = `<div class="metric-grid">${
-    ALL_METRICS.filter(m => !m.startsWith('データ数') && !m.startsWith('積算')).map(m => `
+    available.map(m => `
       <label class="metric-cb-row">
         <input type="radio" name="yearlyMetric" value="${esc(m)}" ${m === DEFAULT ? 'checked' : ''}>
         <span class="metric-cb-label">${esc(m)}</span>
@@ -596,39 +591,64 @@ function renderYearlySelectors() {
   }</div>`;
 }
 
-function updateMonthLabel() {
-  document.getElementById('monthNavLabel').textContent =
-    `${yearlyState.year}年${yearlyState.month}月`;
+function updateYearlyHint() {
+  const startVal = document.getElementById('yearlyStartDate').value;
+  const endVal   = document.getElementById('yearlyEndDate').value;
+  const hintEl   = document.getElementById('yearlyHint');
+  if (startVal && endVal) {
+    const shiftYear = d => (parseInt(d.slice(0, 4)) - 1) + d.slice(4);
+    hintEl.textContent = `前年同期: ${shiftYear(startVal)} 〜 ${shiftYear(endVal)}`;
+  } else {
+    hintEl.textContent = '';
+  }
 }
 
 function runYearlyAnalysis() {
   const fieldName = document.querySelector('input[name="yearlyField"]:checked')?.value;
   const metric    = document.querySelector('input[name="yearlyMetric"]:checked')?.value;
+  const startVal  = document.getElementById('yearlyStartDate').value;
+  const endVal    = document.getElementById('yearlyEndDate').value;
+
   if (!fieldName || !metric) { alert('圃場と指標を選択してください'); return; }
+  if (!startVal || !endVal)  { alert('比較期間を指定してください'); return; }
 
   const rows = state.fields[fieldName] || [];
-  const { year, month } = yearlyState;
-  const lastYear = year - 1;
-  const pad = n => String(n).padStart(2, '0');
-  const monthStr = pad(month);
+  const shiftYear = d => (parseInt(d.slice(0, 4)) - 1) + d.slice(4);
+  const lastStart = shiftYear(startVal);
+  const lastEnd   = shiftYear(endVal);
+  const thisYear  = startVal.slice(0, 4);
+  const lastYear  = lastStart.slice(0, 4);
 
-  // 今年・去年のデータを月でフィルタ
-  const thisYearRows = rows.filter(r => r.日付.startsWith(`${year}-${monthStr}-`));
-  const lastYearRows = rows.filter(r => r.日付.startsWith(`${lastYear}-${monthStr}-`));
+  const thisYearRows = rows.filter(r => r.日付 >= startVal && r.日付 <= endVal)
+                           .sort((a, b) => a.日付.localeCompare(b.日付));
+  const lastYearRows = rows.filter(r => r.日付 >= lastStart && r.日付 <= lastEnd)
+                           .sort((a, b) => a.日付.localeCompare(b.日付));
 
-  if (!thisYearRows.length && !lastYearRows.length) {
+  // 積算指標の場合: 期間先頭から累計を再計算
+  const isCumulative = metric in CUMULATIVE_MAP;
+  const recompute = filteredRows => {
+    if (!isCumulative) return filteredRows;
+    const srcCol = CUMULATIVE_MAP[metric];
+    let acc = 0;
+    return filteredRows.map(r => ({ ...r, [metric]: round3(acc += (r[srcCol] ?? 0)) }));
+  };
+
+  const thisComputed = recompute(thisYearRows);
+  const lastComputed = recompute(lastYearRows);
+
+  if (!thisComputed.length && !lastComputed.length) {
     document.getElementById('yearlyChartContainer').innerHTML =
-      '<div class="error-card">この月のデータがありません</div>';
+      '<div class="error-card">指定期間のデータがありません</div>';
     document.getElementById('yearlyInfo').innerHTML = '';
     return;
   }
 
-  // X軸を日(1〜31)で揃える: 基準日付を2000年に統一
+  // X軸: 月/日 で揃えるため基準年2000に統一
   const toRef = dateStr => '2000-' + dateStr.slice(5);
 
-  const makeDataset = (yearRows, label, color, dashed) => ({
+  const makeDataset = (computedRows, label, color, dashed) => ({
     label,
-    data: yearRows.map(r => ({ x: toRef(r.日付), y: r[metric] })),
+    data: computedRows.map(r => ({ x: toRef(r.日付), y: r[metric] })),
     borderColor: color,
     backgroundColor: color + '22',
     borderWidth: dashed ? 2 : 3,
@@ -640,16 +660,12 @@ function runYearlyAnalysis() {
     fill: false,
   });
 
-  const thisColor = '#3a7d44';
-  const lastColor = '#aaaaaa';
   const datasets = [];
-  if (thisYearRows.length) datasets.push(makeDataset(thisYearRows, `${year}年（今年）`, thisColor, false));
-  if (lastYearRows.length) datasets.push(makeDataset(lastYearRows, `${lastYear}年（去年）`, lastColor, true));
+  if (thisComputed.length) datasets.push(makeDataset(thisComputed, `${thisYear}年（今年）`, '#3a7d44', false));
+  if (lastComputed.length) datasets.push(makeDataset(lastComputed, `${lastYear}年（前年）`, '#aaaaaa', true));
 
-  // グラフ描画
   const container = document.getElementById('yearlyChartContainer');
   container.innerHTML = '<div class="yearly-chart-wrap"><canvas id="yearlyCanvas"></canvas></div>';
-
   if (yearlyState.chart) { yearlyState.chart.destroy(); yearlyState.chart = null; }
 
   yearlyState.chart = new Chart(
@@ -676,28 +692,37 @@ function runYearlyAnalysis() {
     }
   );
 
-  // サマリータイル
-  const avg = arr => arr.length ? (arr.reduce((s, v) => s + v, 0) / arr.length) : null;
-  const thisVals = thisYearRows.map(r => r[metric]).filter(v => v != null);
-  const lastVals = lastYearRows.map(r => r[metric]).filter(v => v != null);
-  const thisAvg = avg(thisVals), lastAvg = avg(lastVals);
-  const diff = (thisAvg != null && lastAvg != null) ? thisAvg - lastAvg : null;
-  const diffSign = diff == null ? '' : diff > 0.1 ? '▲' : diff < -0.1 ? '▼' : '－';
+  // サマリータイル（積算=期間累計の最終値、それ以外=期間平均）
+  const label = isCumulative ? '期間累計' : '期間平均';
+  const summarize = arr => {
+    if (!arr.length) return null;
+    if (isCumulative) return arr[arr.length - 1][metric];
+    const vals = arr.map(r => r[metric]).filter(v => v != null);
+    return vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
+  };
+  const thisVal = summarize(thisComputed);
+  const lastVal = summarize(lastComputed);
+  const diff = (thisVal != null && lastVal != null) ? thisVal - lastVal : null;
+  const diffSign  = diff == null ? '' : diff > 0.1 ? '▲' : diff < -0.1 ? '▼' : '－';
   const diffClass = diff == null ? 'diff-same' : diff > 0.1 ? 'diff-up' : diff < -0.1 ? 'diff-down' : 'diff-same';
+  const fmt = v => v != null ? v.toFixed(1) : '-';
+  const slashDate = d => d.slice(5).replace('-', '/');
+  const periodStr     = `${slashDate(startVal)} 〜 ${slashDate(endVal)}`;
+  const lastPeriodStr = `${slashDate(lastStart)} 〜 ${slashDate(lastEnd)}`;
 
   document.getElementById('yearlyInfo').innerHTML = `
     <div class="yearly-summary">
       <div class="yearly-tile">
-        <div class="yearly-tile-label">${year}年${month}月 平均</div>
-        <div class="yearly-tile-val">${thisAvg != null ? thisAvg.toFixed(1) : '-'}</div>
+        <div class="yearly-tile-label">${thisYear}年 ${periodStr}<br>${label}</div>
+        <div class="yearly-tile-val">${fmt(thisVal)}</div>
         <div class="yearly-tile-diff ${diffClass}">
-          ${diff != null ? `${diffSign} 去年比 ${Math.abs(diff).toFixed(1)}` : '去年データなし'}
+          ${diff != null ? `${diffSign} 前年比 ${Math.abs(diff).toFixed(1)}` : '前年データなし'}
         </div>
       </div>
       <div class="yearly-tile">
-        <div class="yearly-tile-label">${lastYear}年${month}月 平均</div>
-        <div class="yearly-tile-val">${lastAvg != null ? lastAvg.toFixed(1) : '-'}</div>
-        <div class="yearly-tile-diff diff-same">（去年）</div>
+        <div class="yearly-tile-label">${lastYear}年 ${lastPeriodStr}<br>${label}</div>
+        <div class="yearly-tile-val">${fmt(lastVal)}</div>
+        <div class="yearly-tile-diff diff-same">（前年）</div>
       </div>
     </div>`;
 }
@@ -909,18 +934,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('fetchWeatherBtn').addEventListener('click', fetchWeather);
 
-  // 前年比較
-  updateMonthLabel();
-  document.getElementById('prevMonthBtn').addEventListener('click', () => {
-    yearlyState.month--;
-    if (yearlyState.month < 1) { yearlyState.month = 12; yearlyState.year--; }
-    updateMonthLabel();
-  });
-  document.getElementById('nextMonthBtn').addEventListener('click', () => {
-    yearlyState.month++;
-    if (yearlyState.month > 12) { yearlyState.month = 1; yearlyState.year++; }
-    updateMonthLabel();
-  });
+  // 前年比較: デフォルト日付（今月1日〜今日）
+  const _today = new Date();
+  const _firstOfMonth = new Date(_today.getFullYear(), _today.getMonth(), 1);
+  const _fmtDate = d => d.toISOString().slice(0, 10);
+  document.getElementById('yearlyStartDate').value = _fmtDate(_firstOfMonth);
+  document.getElementById('yearlyEndDate').value   = _fmtDate(_today);
+  updateYearlyHint();
+  document.getElementById('yearlyStartDate').addEventListener('change', updateYearlyHint);
+  document.getElementById('yearlyEndDate').addEventListener('change', updateYearlyHint);
   document.getElementById('yearlyAnalyzeBtn').addEventListener('click', runYearlyAnalysis);
 
   document.getElementById('prevChartBtn').addEventListener('click', () => navigateChart(-1));
