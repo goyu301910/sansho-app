@@ -756,6 +756,20 @@ function renderAll() {
 }
 
 // ---- Weather --------------------------------------------
+function saveLocation(lat, lon) {
+  try { localStorage.setItem('sansho_location', JSON.stringify({ lat, lon })); } catch (_) {}
+}
+function loadLocation() {
+  try {
+    const raw = localStorage.getItem('sansho_location');
+    if (raw) {
+      const { lat, lon } = JSON.parse(raw);
+      document.getElementById('lat').value = lat;
+      document.getElementById('lon').value = lon;
+    }
+  } catch (_) {}
+}
+
 async function fetchWeather() {
   const lat = parseFloat(document.getElementById('lat').value);
   const lon = parseFloat(document.getElementById('lon').value);
@@ -763,6 +777,7 @@ async function fetchWeather() {
   if (isNaN(lat) || isNaN(lon)) {
     disp.innerHTML = '<div class="error-card">緯度・経度を正しく入力してください</div>'; return;
   }
+  saveLocation(lat, lon);
   disp.innerHTML = '<div class="loading">取得中...</div>';
   try {
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
@@ -935,7 +950,34 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('uncheckAllMetrics').addEventListener('click', () =>
     document.querySelectorAll('#metricCheckboxes input').forEach(c => c.checked = false));
 
+  loadLocation();
   document.getElementById('fetchWeatherBtn').addEventListener('click', fetchWeather);
+  document.getElementById('geoBtn').addEventListener('click', () => {
+    if (!navigator.geolocation) {
+      alert('このブラウザは位置情報に対応していません'); return;
+    }
+    const btn = document.getElementById('geoBtn');
+    btn.textContent = '取得中...';
+    btn.disabled = true;
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const lat = Math.round(pos.coords.latitude  * 10000) / 10000;
+        const lon = Math.round(pos.coords.longitude * 10000) / 10000;
+        document.getElementById('lat').value = lat;
+        document.getElementById('lon').value = lon;
+        saveLocation(lat, lon);
+        btn.textContent = '🌍 現在地を使用';
+        btn.disabled = false;
+        fetchWeather();
+      },
+      err => {
+        alert('位置情報を取得できませんでした。ブラウザの許可設定を確認してください。');
+        btn.textContent = '🌍 現在地を使用';
+        btn.disabled = false;
+      },
+      { timeout: 10000 }
+    );
+  });
 
   // 前年比較: デフォルト日付（今月1日〜今日）
   const _today = new Date();

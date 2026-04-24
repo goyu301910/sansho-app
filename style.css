@@ -542,6 +542,21 @@ main { padding: 12px; max-width: 640px; margin: 0 auto; padding-bottom: 40px; }
 }
 
 .location-row { display: flex; gap: 12px; margin-bottom: 6px; }
+.weather-btn-row { display: flex; gap: 10px; margin-top: 12px; }
+.weather-btn-row .btn-secondary { flex: 1; width: auto; margin-top: 0; }
+.btn-location {
+  flex: 1;
+  padding: 12px;
+  background: #fff;
+  color: var(--green);
+  border: 2px solid var(--green);
+  border-radius: var(--radius);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.btn-location:active { background: var(--green-pale); }
 .location-input { flex: 1; }
 .location-input label { display: block; font-size: 12px; color: var(--text-sub); margin-bottom: 4px; }
 .location-input input {
