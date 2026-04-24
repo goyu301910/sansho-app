@@ -29,8 +29,10 @@ const CUMULATIVE_MAP = {
 
 // ---- State -----------------------------------------------
 const state = {
-  fields: {},       // fieldName -> DailyRow[]
-  charts: [],       // Chart instances (for destroy)
+  fields: {},           // fieldName -> DailyRow[]
+  charts: [],           // Chart instances (for destroy)
+  currentChartIdx: 0,   // 現在表示中のグラフ番号
+  currentMetrics: [],   // 現在表示中の指標リスト
 };
 
 // ---- Storage ---------------------------------------------
@@ -329,11 +331,12 @@ function renderMetricCheckboxes() {
   }</div>`;
 }
 
-// ---- Render: グラフ群 ------------------------------------
+// ---- Render: グラフ群（カルーセル） ----------------------
 function renderCharts(fieldMap, metrics) {
-  // 既存グラフを破棄
   state.charts.forEach(c => c.destroy());
   state.charts = [];
+  state.currentChartIdx = 0;
+  state.currentMetrics = metrics;
 
   const container = document.getElementById('chartsContainer');
   container.innerHTML = '';
@@ -341,7 +344,7 @@ function renderCharts(fieldMap, metrics) {
   for (const metric of metrics) {
     const block = document.createElement('div');
     block.className = 'chart-block';
-    block.innerHTML = `<div class="chart-title">${esc(metric)}</div><canvas></canvas>`;
+    block.innerHTML = `<canvas></canvas>`;
     container.appendChild(block);
 
     const canvas = block.querySelector('canvas');
@@ -364,23 +367,67 @@ function renderCharts(fieldMap, metrics) {
       data: { datasets },
       options: {
         responsive: true,
+        maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
         scales: {
           x: {
             type: 'time',
             time: { unit: 'day', displayFormats: { day: 'M/d' } },
-            ticks: { maxTicksLimit: 8 },
+            ticks: { maxTicksLimit: 8, font: { size: 12 } },
           },
-          y: { title: { display: false } },
+          y: { ticks: { font: { size: 12 } } },
         },
         plugins: {
-          legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+          legend: { position: 'bottom', labels: { boxWidth: 14, font: { size: 13 } } },
           tooltip: { callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y ?? '-'}` } },
         },
       },
     });
     state.charts.push(chart);
   }
+
+  // 最初のグラフを表示
+  updateChartView();
+
+  // ナビゲーターを更新
+  const dotsEl = document.getElementById('chartNavDots');
+  dotsEl.innerHTML = metrics.map((_, i) =>
+    `<div class="chart-dot${i === 0 ? ' active' : ''}" data-idx="${i}"></div>`
+  ).join('');
+  dotsEl.querySelectorAll('.chart-dot').forEach(dot => {
+    dot.addEventListener('click', () => navigateChart(parseInt(dot.dataset.idx) - state.currentChartIdx));
+  });
+
+  document.getElementById('chartNav').style.display = 'flex';
+
+  // スワイプ対応
+  let touchStartX = 0;
+  container.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
+  container.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 50) navigateChart(dx < 0 ? 1 : -1);
+  }, { passive: true });
+}
+
+function updateChartView() {
+  const idx = state.currentChartIdx;
+  const metrics = state.currentMetrics;
+
+  document.querySelectorAll('.chart-block').forEach((b, i) => b.classList.toggle('active', i === idx));
+  document.getElementById('chartNavLabel').textContent = `${metrics[idx]}　(${idx + 1} / ${metrics.length})`;
+  document.getElementById('prevChartBtn').disabled = idx === 0;
+  document.getElementById('nextChartBtn').disabled = idx === metrics.length - 1;
+  document.querySelectorAll('.chart-dot').forEach((d, i) => d.classList.toggle('active', i === idx));
+
+  // グラフをリサイズ（非表示→表示切替後に必要）
+  state.charts[idx]?.resize();
+}
+
+function navigateChart(delta) {
+  const next = state.currentChartIdx + delta;
+  if (next < 0 || next >= state.currentMetrics.length) return;
+  state.currentChartIdx = next;
+  updateChartView();
 }
 
 // ---- Render: プレビューテーブル -------------------------
@@ -447,6 +494,17 @@ function runAnalysis() {
   // 描画
   renderCharts(fieldMap, metrics);
   renderPreview(fieldMap, metrics, () => downloadCSV(fieldMap, metrics));
+
+  // 設定パネルを折りたたみ、サマリー表示
+  document.getElementById('settingsPanel').style.display = 'none';
+  const summary = document.getElementById('settingsSummary');
+  summary.style.display = 'flex';
+  const periodText = (startDate && endDate) ? `${startDate} 〜 ${endDate}` : '全期間';
+  document.getElementById('settingsSummaryText').textContent =
+    `${periodText} | ${fieldNames.length}圃場 | ${metrics.length}指標`;
+
+  // チャートナビへスクロール
+  document.getElementById('chartNav').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ---- Upload Handler -------------------------------------
@@ -689,4 +747,19 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('#metricCheckboxes input').forEach(c => c.checked = false));
 
   document.getElementById('fetchWeatherBtn').addEventListener('click', fetchWeather);
+
+  document.getElementById('prevChartBtn').addEventListener('click', () => navigateChart(-1));
+  document.getElementById('nextChartBtn').addEventListener('click', () => navigateChart(1));
+
+  document.getElementById('changeSettingsBtn').addEventListener('click', () => {
+    document.getElementById('settingsPanel').style.display = 'block';
+    document.getElementById('settingsSummary').style.display = 'none';
+    document.getElementById('chartNav').style.display = 'none';
+    document.getElementById('chartsContainer').innerHTML = '';
+    document.getElementById('previewSection').innerHTML = '';
+    state.charts.forEach(c => c.destroy());
+    state.charts = [];
+    state.currentMetrics = [];
+    document.getElementById('settingsPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 });
