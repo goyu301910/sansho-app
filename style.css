@@ -365,7 +365,22 @@ main { padding: 12px; max-width: 640px; margin: 0 auto; padding-bottom: 40px; }
   color: var(--text);
   margin-bottom: 6px;
 }
-.chart-nav-dots { display: flex; gap: 7px; justify-content: center; flex-wrap: wrap; }
+.chart-nav-dots { display: flex; gap: 7px; justify-content: center; flex-wrap: wrap; margin-bottom: 6px; }
+.scale-toggle-btn {
+  background: #fff;
+  border: 1.5px solid var(--green);
+  color: var(--green);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.scale-toggle-btn.active {
+  background: var(--green);
+  color: #fff;
+}
 .chart-dot {
   width: 8px; height: 8px;
   border-radius: 50%;

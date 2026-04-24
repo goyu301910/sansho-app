@@ -29,10 +29,12 @@ const CUMULATIVE_MAP = {
 
 // ---- State -----------------------------------------------
 const state = {
-  fields: {},           // fieldName -> DailyRow[]
-  charts: [],           // Chart instances (for destroy)
-  currentChartIdx: 0,   // 現在表示中のグラフ番号
-  currentMetrics: [],   // 現在表示中の指標リスト
+  fields: {},              // fieldName -> DailyRow[]
+  charts: [],              // Chart instances (for destroy)
+  currentChartIdx: 0,      // 現在表示中のグラフ番号
+  currentMetrics: [],      // 現在表示中の指標リスト
+  individualScale: false,  // 個別スケールモード
+  lastFieldMap: null,      // 再描画用に保持
 };
 
 // ---- Storage ---------------------------------------------
@@ -337,6 +339,7 @@ function renderCharts(fieldMap, metrics) {
   state.charts = [];
   state.currentChartIdx = 0;
   state.currentMetrics = metrics;
+  state.lastFieldMap = fieldMap;
 
   const container = document.getElementById('chartsContainer');
   container.innerHTML = '';
@@ -348,8 +351,37 @@ function renderCharts(fieldMap, metrics) {
     container.appendChild(block);
 
     const canvas = block.querySelector('canvas');
-    const datasets = Object.entries(fieldMap).map(([name, rows]) => {
+    const entries = Object.entries(fieldMap);
+
+    // 個別スケール: 各圃場に専用Y軸を割り当て
+    const scales = {
+      x: {
+        type: 'time',
+        time: { unit: 'day', displayFormats: { day: 'M/d' } },
+        ticks: { maxTicksLimit: 8, font: { size: 12 } },
+      },
+    };
+
+    const datasets = entries.map(([name, rows], i) => {
       const color = fieldColor(name);
+      const values = rows.map(r => r[metric]).filter(v => v != null && !isNaN(v));
+      const axisId = state.individualScale ? `y_${i}` : 'y';
+
+      if (state.individualScale && values.length > 0) {
+        const mn = Math.min(...values), mx = Math.max(...values);
+        const pad = Math.max((mx - mn) * 0.15, 0.5);
+        scales[axisId] = {
+          type: 'linear',
+          display: i === 0,   // 最初の圃場のみ軸ラベルを表示
+          position: 'left',
+          min: mn - pad,
+          max: mx + pad,
+          ticks: { font: { size: 12 }, maxTicksLimit: 6 },
+        };
+      } else if (!state.individualScale && i === 0) {
+        scales['y'] = { ticks: { font: { size: 12 } } };
+      }
+
       return {
         label: name,
         data: rows.map(r => ({ x: r.日付, y: r[metric] })),
@@ -361,6 +393,7 @@ function renderCharts(fieldMap, metrics) {
         pointHitRadius: 20,
         tension: 0.3,
         fill: false,
+        yAxisID: axisId,
       };
     });
 
@@ -371,14 +404,7 @@ function renderCharts(fieldMap, metrics) {
         responsive: true,
         maintainAspectRatio: false,
         interaction: { mode: 'index', intersect: false },
-        scales: {
-          x: {
-            type: 'time',
-            time: { unit: 'day', displayFormats: { day: 'M/d' } },
-            ticks: { maxTicksLimit: 8, font: { size: 12 } },
-          },
-          y: { ticks: { font: { size: 12 } } },
-        },
+        scales,
         plugins: {
           legend: { position: 'bottom', labels: { boxWidth: 14, font: { size: 13 } } },
           tooltip: { callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y ?? '-'}` } },
@@ -752,6 +778,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('prevChartBtn').addEventListener('click', () => navigateChart(-1));
   document.getElementById('nextChartBtn').addEventListener('click', () => navigateChart(1));
+
+  document.getElementById('scaleToggleBtn').addEventListener('click', () => {
+    state.individualScale = !state.individualScale;
+    const btn = document.getElementById('scaleToggleBtn');
+    btn.textContent = state.individualScale ? '個別スケール' : '共通スケール';
+    btn.classList.toggle('active', state.individualScale);
+    if (state.lastFieldMap && state.currentMetrics.length > 0) {
+      const prevIdx = state.currentChartIdx;
+      renderCharts(state.lastFieldMap, state.currentMetrics);
+      state.currentChartIdx = prevIdx;
+      updateChartView();
+    }
+  });
 
   document.getElementById('changeSettingsBtn').addEventListener('click', () => {
     document.getElementById('settingsPanel').style.display = 'block';
