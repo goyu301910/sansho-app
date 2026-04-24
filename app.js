@@ -355,9 +355,11 @@ function renderCharts(fieldMap, metrics) {
         data: rows.map(r => ({ x: r.日付, y: r[metric] })),
         borderColor: color,
         backgroundColor: color + '22',
-        borderWidth: 2,
-        pointRadius: 2,
-        tension: 0.15,
+        borderWidth: 2.5,
+        pointRadius: 0,
+        pointHoverRadius: 6,
+        pointHitRadius: 20,
+        tension: 0.3,
         fill: false,
       };
     });
