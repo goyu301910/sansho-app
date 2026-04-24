@@ -959,6 +959,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('geoBtn');
     btn.textContent = '取得中...';
     btn.disabled = true;
+    const disp = document.getElementById('weatherDisplay');
+    disp.innerHTML = '<div class="loading">📍 位置情報を取得中...<br><small style="color:#888">ブラウザから許可を求めるダイアログが表示されたら「許可」を選択してください</small></div>';
     navigator.geolocation.getCurrentPosition(
       pos => {
         const lat = Math.round(pos.coords.latitude  * 10000) / 10000;
