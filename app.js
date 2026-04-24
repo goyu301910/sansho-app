@@ -971,11 +971,17 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchWeather();
       },
       err => {
-        alert('位置情報を取得できませんでした。ブラウザの許可設定を確認してください。');
+        const msg = {
+          1: '位置情報の許可が拒否されています。\nブラウザの設定 → サイトの設定 → 位置情報 を「許可」にしてください。',
+          2: '位置情報を取得できませんでした（電波・GPS不良）。',
+          3: '位置情報の取得がタイムアウトしました。再度お試しください。',
+        }[err.code] ?? `エラー: ${err.message}`;
+        const disp = document.getElementById('weatherDisplay');
+        disp.innerHTML = `<div class="error-card">${msg}</div>`;
         btn.textContent = '🌍 現在地を使用';
         btn.disabled = false;
       },
-      { timeout: 10000 }
+      { timeout: 15000, enableHighAccuracy: false }
     );
   });
 
