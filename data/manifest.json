@@ -1,4 +1,45 @@
 {
   "updated": "2026-04-27T21:36:30Z",
-  "fields": []
+  "fields": [
+    {
+      "sid": "gmw34c",
+      "name": "岩本さん2(不良)下",
+      "file": "gmw34c.csv"
+    },
+    {
+      "sid": "gma1st",
+      "name": "岩本さん1(良好)上",
+      "file": "gma1st.csv"
+    },
+    {
+      "sid": "gm0ruk",
+      "name": "森本さん2(良好)下",
+      "file": "gm0ruk.csv"
+    },
+    {
+      "sid": "gm1126",
+      "name": "森本さん1(不良)上",
+      "file": "gm1126.csv"
+    },
+    {
+      "sid": "gmhk7u",
+      "name": "河田さん",
+      "file": "gmhk7u.csv"
+    },
+    {
+      "sid": "gm2svn",
+      "name": "市本さん",
+      "file": "gm2svn.csv"
+    },
+    {
+      "sid": "gmyyyu",
+      "name": "大森さん",
+      "file": "gmyyyu.csv"
+    },
+    {
+      "sid": "gm4mn6",
+      "name": "川上さん",
+      "file": "gm4mn6.csv"
+    }
+  ]
 }
