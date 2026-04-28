@@ -189,7 +189,8 @@ main { padding: 12px; max-width: 640px; margin: 0 auto; padding-bottom: 40px; }
   cursor: pointer;
 }
 .cb-row:last-child { border-bottom: none; }
-.cb-row input[type="checkbox"] { width: 19px; height: 19px; accent-color: var(--green); flex-shrink: 0; }
+.cb-row input[type="checkbox"],
+.cb-row input[type="radio"] { width: 19px; height: 19px; accent-color: var(--green); flex-shrink: 0; }
 .cb-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
 .cb-label { font-size: 14px; font-weight: 600; flex: 1; }
 

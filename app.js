@@ -583,15 +583,15 @@ function renderYearlySelectors() {
   const fieldNames = Object.keys(state.fields);
   const noData = '<p class="empty-msg">まずデータを読み込んでください</p>';
 
-  // 圃場チェックボックス
+  // 圃場ラジオボタン（1つ選択）
   const fEl = document.getElementById('yearlyFieldSelect');
   if (!fieldNames.length) {
     fEl.innerHTML = noData;
   } else {
-    fEl.innerHTML = fieldNames.map(name => {
+    fEl.innerHTML = fieldNames.map((name, i) => {
       const color = fieldColor(name);
       return `<label class="cb-row">
-        <input type="checkbox" value="${esc(name)}" checked>
+        <input type="radio" name="yearlyField" value="${esc(name)}" ${i === 0 ? 'checked' : ''}>
         <span class="cb-dot" style="background:${color}"></span>
         <span class="cb-label">${esc(name)}</span>
       </label>`;
@@ -623,8 +623,9 @@ function runPeriodAnalysis() {
   const mode       = document.querySelector('input[name="yearlyMode"]:checked')?.value || 'raw';
   const chillThres = parseFloat(document.getElementById('chillThreshold').value) || 5;
 
-  const selectedNames = [...document.querySelectorAll('#yearlyFieldSelect input:checked')].map(c => c.value);
-  if (!selectedNames.length) { alert('圃場を1つ以上選択してください'); return; }
+  const selectedField = document.querySelector('#yearlyFieldSelect input[name="yearlyField"]:checked')?.value;
+  if (!selectedField) { alert('圃場を選択してください'); return; }
+  const selectedNames = [selectedField];
   if (!metric) { alert('指標を選択してください'); return; }
 
   const chartMetric = (mode === 'chill' || mode === 'chillhours') ? '低温値' : metric;
