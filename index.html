@@ -117,13 +117,15 @@
 
   </section>
 
-  <!-- ===== 年度別比較 ===== -->
+  <!-- ===== 年度比較 ===== -->
   <section id="tab-yearly" class="tab-content">
 
     <div class="card">
-      <span class="card-label">圃場</span>
-      <div id="yearlyFieldSelect">
-        <p class="empty-msg">まずデータを読み込んでください</p>
+      <span class="card-label">比較期間</span>
+      <div class="date-row">
+        <input type="date" id="yearlyStartDate">
+        <span class="date-sep">〜</span>
+        <input type="date" id="yearlyEndDate">
       </div>
     </div>
 
@@ -135,29 +137,13 @@
     </div>
 
     <div class="card">
-      <span class="card-label">比較期間（月/日）</span>
-      <div class="md-range-row">
-        <input type="number" id="yearlyStartMonth" class="md-num" min="1" max="12" value="10">
-        <span class="md-unit">月</span>
-        <input type="number" id="yearlyStartDay" class="md-num" min="1" max="31" value="1">
-        <span class="md-unit">日</span>
-        <span class="date-sep">〜</span>
-        <input type="number" id="yearlyEndMonth" class="md-num" min="1" max="12" value="4">
-        <span class="md-unit">月</span>
-        <input type="number" id="yearlyEndDay" class="md-num" min="1" max="31" value="30">
-        <span class="md-unit">日</span>
-      </div>
-      <p class="hint">年をまたぐ期間（例: 10月〜翌4月）も指定できます</p>
-    </div>
-
-    <div class="card">
       <span class="card-label">表示モード</span>
       <div class="mode-options">
         <label class="mode-option">
           <input type="radio" name="yearlyMode" value="raw" checked>
           <div class="mode-option-inner">
             <span class="mode-name">実測値</span>
-            <span class="mode-desc">日ごとの測定値を重ねて比較</span>
+            <span class="mode-desc">日ごとの測定値を全圃場で比較</span>
           </div>
         </label>
         <label class="mode-option">
@@ -188,7 +174,7 @@
       </div>
     </div>
 
-    <button class="btn-primary" id="yearlyAnalyzeBtn">年度別に比較</button>
+    <button class="btn-primary" id="yearlyAnalyzeBtn">比較グラフを表示</button>
 
     <div id="yearlyChartContainer"></div>
     <div id="yearlyInfo"></div>

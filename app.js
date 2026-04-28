@@ -575,66 +575,17 @@ async function handleFiles(files) {
 }
 
 // ============================================================
-// 年度別比較
+// 年度比較（全圃場・期間指定）
 // ============================================================
 
-// 月/日の範囲でデータをシーズン年ごとに抽出し、基準年（2000年）に正規化
-function extractSeasonalData(rows, startMonth, startDay, endMonth, endDay) {
-  const crossesYear = startMonth > endMonth ||
-    (startMonth === endMonth && startDay > endDay);
-  const startMD = startMonth * 100 + startDay;
-  const endMD   = endMonth   * 100 + endDay;
-
-  const byYear = {};
-  for (const row of rows) {
-    const parts = row.日付.split('-');
-    const y = parseInt(parts[0]);
-    const m = parseInt(parts[1]);
-    const d = parseInt(parts[2]);
-    const md = m * 100 + d;
-
-    // 期間内かチェック
-    const inRange = crossesYear ? (md >= startMD || md <= endMD)
-                                : (md >= startMD && md <= endMD);
-    if (!inRange) continue;
-
-    // シーズン年の特定（10月〜3月ならOct-Decは当年、Jan-Marは前年に属す）
-    const seasonYear = crossesYear ? (m >= startMonth ? y : y - 1) : y;
-
-    // X軸共通化: 基準年2000/2001に正規化
-    const refYear = (crossesYear && m < startMonth) ? 2001 : 2000;
-    const normDate = `${refYear}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
-
-    if (!byYear[seasonYear]) byYear[seasonYear] = [];
-    byYear[seasonYear].push({ ...row, 日付: normDate });
-  }
-
-  const result = {};
-  for (const [year, yearRows] of Object.entries(byYear)) {
-    result[year] = yearRows.sort((a, b) => a.日付.localeCompare(b.日付));
-  }
-  return result;
-}
-
-// 年度別セレクタを描画（前年比較タブ用）
+// 指標セレクタを描画
 function renderYearlySelectors() {
-  const fieldNames = Object.keys(state.fields);
-
-  const fEl = document.getElementById('yearlyFieldSelect');
-  if (!fieldNames.length) {
-    fEl.innerHTML = '<p class="empty-msg">まずデータを読み込んでください</p>';
-    document.getElementById('yearlyMetricSelect').innerHTML = fEl.innerHTML;
-    return;
-  }
-  fEl.innerHTML = fieldNames.map((n, i) => `
-    <label class="cb-row">
-      <input type="radio" name="yearlyField" value="${esc(n)}" ${i === 0 ? 'checked' : ''}>
-      <span class="cb-dot" style="background:${fieldColor(n)}"></span>
-      <span class="cb-label">${esc(n)}</span>
-    </label>`).join('');
-
   const mEl = document.getElementById('yearlyMetricSelect');
   const available = getAvailableMetrics().filter(m => m !== 'データ数' && !(m in CUMULATIVE_MAP));
+  if (!available.length) {
+    mEl.innerHTML = '<p class="empty-msg">まずデータを読み込んでください</p>';
+    return;
+  }
   const DEFAULT = '平均気温';
   mEl.innerHTML = `<div class="metric-grid">${
     available.map(m => `
@@ -645,39 +596,27 @@ function renderYearlySelectors() {
   }</div>`;
 }
 
-// 年度別比較の実行
-function runMultiYearAnalysis() {
-  const fieldName = document.querySelector('input[name="yearlyField"]:checked')?.value;
-  const metric    = document.querySelector('input[name="yearlyMetric"]:checked')?.value;
-  const startMonth = parseInt(document.getElementById('yearlyStartMonth').value);
-  const startDay   = parseInt(document.getElementById('yearlyStartDay').value);
-  const endMonth   = parseInt(document.getElementById('yearlyEndMonth').value);
-  const endDay     = parseInt(document.getElementById('yearlyEndDay').value);
+// 全圃場を対象に指定期間・モードで比較グラフを表示
+function runPeriodAnalysis() {
+  const metric     = document.querySelector('input[name="yearlyMetric"]:checked')?.value;
+  const startDate  = document.getElementById('yearlyStartDate').value;
+  const endDate    = document.getElementById('yearlyEndDate').value;
   const mode       = document.querySelector('input[name="yearlyMode"]:checked')?.value || 'raw';
   const chillThres = parseFloat(document.getElementById('chillThreshold').value) || 5;
 
-  if (!fieldName || !metric) { alert('圃場と指標を選択してください'); return; }
-  if (!startMonth || !startDay || !endMonth || !endDay) {
-    alert('期間の月/日を正しく入力してください'); return;
-  }
+  if (Object.keys(state.fields).length === 0) { alert('まずCSVファイルを読み込んでください'); return; }
+  if (!metric) { alert('指標を選択してください'); return; }
 
-  const allRows = state.fields[fieldName] || [];
-  const seasonData = extractSeasonalData(allRows, startMonth, startDay, endMonth, endDay);
-  const years = Object.keys(seasonData).map(Number).sort();
-
-  if (years.length === 0) {
-    document.getElementById('yearlyChartContainer').innerHTML =
-      '<div class="error-card">指定期間にデータがありません</div>';
-    document.getElementById('yearlyInfo').innerHTML = '';
-    return;
-  }
-
-  // 表示モードに応じてデータ変換
   const chartMetric = (mode === 'chill' || mode === 'chillhours') ? '低温値' : metric;
-  const processedData = {};
 
-  for (const year of years) {
-    let rows = [...seasonData[year]];
+  // 圃場ごとにデータを準備
+  const datasets = [];
+  const summaryData = [];
+
+  for (const [name, allRows] of Object.entries(state.fields)) {
+    let rows = filterPeriod(allRows, startDate, endDate)
+                 .sort((a, b) => a.日付.localeCompare(b.日付));
+    if (!rows.length) continue;
 
     if (mode === 'cumulative') {
       let acc = 0;
@@ -686,66 +625,60 @@ function runMultiYearAnalysis() {
         acc = round3(acc + (r[srcCol] ?? 0));
         return { ...r, [metric]: acc };
       });
-
     } else if (mode === 'chill') {
-      // 閾値以下の日数積算
       let acc = 0;
       rows = rows.map(r => {
         const temp = r['平均気温'];
         if (temp != null && temp <= chillThres) acc++;
         return { ...r, '低温値': acc };
       });
-
     } else if (mode === 'chillhours') {
-      // 温度欠損積算（チル時間相当）
       let acc = 0;
       rows = rows.map(r => {
         const temp = r['平均気温'];
-        if (temp != null && temp <= chillThres) {
-          acc = round3(acc + (chillThres - temp));
-        }
+        if (temp != null && temp <= chillThres) acc = round3(acc + (chillThres - temp));
         return { ...r, '低温値': acc };
       });
     }
 
-    processedData[year] = rows;
-  }
-
-  // 今年を基準に年ごとのスタイルを決定
-  const currentYear = new Date().getFullYear();
-  const makeStyle = year => {
-    const offset = currentYear - year; // 0=今年, 1=前年, 2=2年前, 3以上=それ以降
-    const idx = Math.max(0, SEASON_YEAR_STYLES.length - 1 - Math.min(offset, SEASON_YEAR_STYLES.length - 1));
-    return SEASON_YEAR_STYLES[idx];
-  };
-
-  const datasets = years.map(year => {
-    const rows = processedData[year];
-    const style = makeStyle(year);
-    const isCurrentYear = year === currentYear;
-    return {
-      label: `${year}年`,
+    const color = fieldColor(name);
+    datasets.push({
+      label: name,
       data: rows.map(r => ({ x: r.日付, y: r[chartMetric] })),
-      borderColor: style.color,
-      backgroundColor: style.color + '22',
-      borderWidth: isCurrentYear ? 3 : 2,
-      borderDash: style.dash,
+      borderColor: color,
+      backgroundColor: color + '22',
+      borderWidth: 2.5,
       pointRadius: 0,
       pointHoverRadius: 6,
       pointHitRadius: 20,
       tension: 0.3,
       fill: false,
-    };
-  });
+    });
+
+    const vals = rows.map(r => r[chartMetric]).filter(v => v != null);
+    const isCumulative = mode !== 'raw';
+    const summary = !vals.length ? null
+      : isCumulative ? vals[vals.length - 1]
+      : round3(vals.reduce((s, v) => s + v, 0) / vals.length);
+    summaryData.push({ name, color, summary, days: rows.length });
+  }
+
+  if (!datasets.length) {
+    document.getElementById('yearlyChartContainer').innerHTML =
+      '<div class="error-card">指定期間にデータがありません</div>';
+    document.getElementById('yearlyInfo').innerHTML = '';
+    return;
+  }
 
   // チャート描画
   const container = document.getElementById('yearlyChartContainer');
   container.innerHTML = '<div class="yearly-chart-wrap"><canvas id="yearlyCanvas"></canvas></div>';
   if (yearlyState.chart) { yearlyState.chart.destroy(); yearlyState.chart = null; }
 
-  const yLabel = mode === 'chill' ? `低温積算日数（≤${chillThres}°C）` :
-                 mode === 'chillhours' ? `チル時間相当（≤${chillThres}°C）` :
-                 mode === 'cumulative' ? `${metric}（積算）` : metric;
+  const yLabel = mode === 'chill'      ? `低温積算日数（≤${chillThres}°C）`
+               : mode === 'chillhours' ? `チル時間相当（≤${chillThres}°C）`
+               : mode === 'cumulative' ? `${metric}（積算）`
+               : metric;
 
   yearlyState.chart = new Chart(
     document.getElementById('yearlyCanvas').getContext('2d'), {
@@ -758,11 +691,7 @@ function runMultiYearAnalysis() {
         scales: {
           x: {
             type: 'time',
-            time: {
-              unit: 'day',
-              displayFormats: { day: 'M/d' },
-              tooltipFormat: 'M月d日',
-            },
+            time: { unit: 'day', displayFormats: { day: 'M/d' } },
             ticks: { maxTicksLimit: 10, font: { size: 12 } },
           },
           y: {
@@ -772,53 +701,22 @@ function runMultiYearAnalysis() {
         },
         plugins: {
           legend: { position: 'bottom', labels: { boxWidth: 14, font: { size: 13 } } },
-          tooltip: {
-            callbacks: {
-              title: ctx => {
-                if (!ctx[0]) return '';
-                const d = new Date(ctx[0].parsed.x);
-                return `${d.getMonth()+1}月${d.getDate()}日`;
-              },
-              label: c => `${c.dataset.label}: ${c.parsed.y?.toFixed(1) ?? '-'}`,
-            },
-          },
+          tooltip: { callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y?.toFixed(1) ?? '-'}` } },
         },
       },
     }
   );
 
-  // サマリー（各年の期間集計値）
-  const isCumulative = (mode !== 'raw');
-  const summarize = rows => {
-    const vals = rows.map(r => r[chartMetric]).filter(v => v != null);
-    if (!vals.length) return null;
-    if (isCumulative) return vals[vals.length - 1]; // 最終積算値
-    return round3(vals.reduce((s, v) => s + v, 0) / vals.length); // 期間平均
-  };
-
-  const fmt = v => v != null ? v.toFixed(1) : '-';
-  const summarizedVals = years.map(y => ({ year: y, val: summarize(processedData[y]) }));
-  const allVals = summarizedVals.map(s => s.val).filter(v => v != null);
-  const baseVal = summarizedVals.find(s => s.year === currentYear - 1)?.val ?? null;
-
+  // サマリータイル
+  const fmt = v => v != null ? v.toFixed(1) : '—';
+  const lbl = mode !== 'raw' ? '期間累計' : '期間平均';
   let infoHtml = `<div class="yearly-summary multi">`;
-  for (const { year, val } of summarizedVals) {
-    const style = makeStyle(year);
-    let diffHtml = '';
-    if (baseVal != null && val != null && year !== currentYear - 1) {
-      const diff = val - baseVal;
-      const sign = diff > 0.05 ? '▲' : diff < -0.05 ? '▼' : '－';
-      const cls  = diff > 0.05 ? 'diff-up' : diff < -0.05 ? 'diff-down' : 'diff-same';
-      diffHtml = `<div class="yearly-tile-diff ${cls}">${sign} 前年比 ${Math.abs(diff).toFixed(1)}</div>`;
-    } else {
-      const lbl = isCumulative ? '期間累計' : '期間平均';
-      diffHtml = `<div class="yearly-tile-diff diff-same">${lbl}</div>`;
-    }
+  for (const { name, color, summary, days } of summaryData) {
     infoHtml += `
-      <div class="yearly-tile" style="border-top:3px solid ${style.color}">
-        <div class="yearly-tile-label">${year}年</div>
-        <div class="yearly-tile-val">${fmt(val)}</div>
-        ${diffHtml}
+      <div class="yearly-tile" style="border-top:3px solid ${color}">
+        <div class="yearly-tile-label" style="font-size:10px;word-break:break-all">${esc(name)}</div>
+        <div class="yearly-tile-val">${fmt(summary)}</div>
+        <div class="yearly-tile-diff diff-same">${lbl}（${days}日）</div>
       </div>`;
   }
   infoHtml += `</div>`;
@@ -1179,11 +1077,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // 年度別比較
-  document.getElementById('yearlyAnalyzeBtn').addEventListener('click', () => {
-    if (Object.keys(state.fields).length === 0) { alert('まずCSVファイルを読み込んでください'); return; }
-    runMultiYearAnalysis();
-  });
+  // 年度比較
+  const _today2 = new Date();
+  const _fmt2 = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const _sixMonthsAgo = new Date(_today2); _sixMonthsAgo.setMonth(_sixMonthsAgo.getMonth() - 6);
+  document.getElementById('yearlyStartDate').value = _fmt2(_sixMonthsAgo);
+  document.getElementById('yearlyEndDate').value   = _fmt2(_today2);
+
+  document.getElementById('yearlyAnalyzeBtn').addEventListener('click', runPeriodAnalysis);
 
   // 低温閾値の変更を"チル時間"ラベルに反映
   document.getElementById('chillThreshold').addEventListener('input', e => {
