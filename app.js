@@ -9,6 +9,14 @@ const FIELD_COLORS = [
   '#CDDC39','#3F51B5','#009688','#F44336',
 ];
 
+// 年度別比較チャートの年ごとの色（古い年から順に）
+const SEASON_YEAR_STYLES = [
+  { color: '#9E9E9E', dash: [6, 4] },  // 3年以上前
+  { color: '#FF9800', dash: [6, 4] },  // 2年前
+  { color: '#1976D2', dash: [4, 2] },  // 前年
+  { color: '#3a7d44', dash: [] },      // 今年（実線・緑）
+];
+
 const RAW_COLUMNS = ['年','月','日','時分','気温','地中温度','土壌水分','照度','EC'];
 
 const ALL_METRICS = [
@@ -29,15 +37,17 @@ const CUMULATIVE_MAP = {
 
 // ---- State -----------------------------------------------
 const state = {
-  fields: {},              // fieldName -> DailyRow[]
-  charts: [],              // Chart instances (for destroy)
-  currentChartIdx: 0,      // 現在表示中のグラフ番号
-  currentMetrics: [],      // 現在表示中の指標リスト
-  individualScale: false,  // 個別スケールモード
-  lastFieldMap: null,      // 再描画用に保持
+  fields: {},
+  charts: [],
+  currentChartIdx: 0,
+  currentMetrics: [],
+  individualScale: false,
+  lastFieldMap: null,
 };
 
-// ---- Storage ---------------------------------------------
+const yearlyState = { chart: null };
+
+// ---- Storage: センサーデータ ---------------------------
 function saveFields() {
   try { localStorage.setItem('sansho_fields', JSON.stringify(state.fields)); } catch (_) {}
 }
@@ -48,6 +58,20 @@ function loadFields() {
   } catch (_) { state.fields = {}; }
 }
 
+// ---- Storage: 物候記録 ----------------------------------
+const PHENO_KEY = 'sansho_pheno';
+
+function savePhenoRecords(records) {
+  try { localStorage.setItem(PHENO_KEY, JSON.stringify(records)); } catch (_) {}
+}
+function loadPhenoRecords() {
+  try {
+    const raw = localStorage.getItem(PHENO_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (_) { return {}; }
+}
+
+// ---- Color -----------------------------------------------
 function fieldColor(name) {
   const idx = Object.keys(state.fields).indexOf(name);
   return FIELD_COLORS[Math.max(idx, 0) % FIELD_COLORS.length];
@@ -99,7 +123,6 @@ function buildDailySummary(rows, fieldName) {
     let chg = 0;
     for (let i = 1; i < T.length; i++) chg += Math.abs(T[i] - T[i - 1]);
 
-    // 積算は日平均の累計（Pythonのrecompute_cumulativeと同等）
     cumTemp    += avg(T) ?? 0;
     cumSoil    += avg(S) ?? 0;
     cumMoist   += avg(M) ?? 0;
@@ -123,8 +146,8 @@ function buildDailySummary(rows, fieldName) {
 
 // ---- CSV: 日別集計済み CSV 正規化 ------------------------
 function normalizeDailyCSV(rows, headers, fieldName) {
-  const hasDate     = headers.includes('日付');
-  const hasMetrics  = ALL_METRICS.some(m => headers.includes(m));
+  const hasDate    = headers.includes('日付');
+  const hasMetrics = ALL_METRICS.some(m => headers.includes(m));
   if (!hasDate || !hasMetrics) throw new Error('日別集計済みCSVとして認識できません（「日付」列が必要）');
 
   return rows
@@ -144,12 +167,15 @@ function normalizeDailyCSV(rows, headers, fieldName) {
 // ---- CSV: ファイル → 日別集計 ----------------------------
 async function parseCSVFile(file) {
   const text = await readFileText(file);
+  return parseCSVText(text, file.name.replace(/\.csv$/i, ''));
+}
+
+async function parseCSVText(text, fieldName) {
   return new Promise((resolve, reject) => {
     Papa.parse(text, {
       header: true, skipEmptyLines: true,
       complete(res) {
         const headers = res.meta.fields || [];
-        const fieldName = file.name.replace(/\.csv$/i, '');
         try {
           if (RAW_COLUMNS.every(c => headers.includes(c))) {
             resolve({ fieldName, summary: buildDailySummary(res.data, fieldName) });
@@ -193,7 +219,6 @@ function alignInterpolate(fieldMap) {
     const metrics = ALL_METRICS.filter(m => rows.some(r => r[m] != null));
     const expanded = allDates.map(d => byDate[d] || { 圃場名: name, 日付: d });
 
-    // 線形補間
     for (const m of metrics) {
       const vals = expanded.map(r => r[m] ?? null);
       for (let i = 0; i < vals.length; i++) {
@@ -249,7 +274,7 @@ function downloadCSV(fieldMap, metrics) {
       lines.push(cols.map(c => r[c] ?? '').join(','));
     }
   }
-  const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const blob = new Blob(['﻿' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = `sansho_export_${new Date().toISOString().slice(0,10)}.csv`;
@@ -353,7 +378,6 @@ function renderCharts(fieldMap, metrics) {
     const canvas = block.querySelector('canvas');
     const entries = Object.entries(fieldMap);
 
-    // 個別スケール: 各圃場に専用Y軸を割り当て
     const scales = {
       x: {
         type: 'time',
@@ -372,7 +396,7 @@ function renderCharts(fieldMap, metrics) {
         const pad = Math.max((mx - mn) * 0.15, 0.5);
         scales[axisId] = {
           type: 'linear',
-          display: i === 0,   // 最初の圃場のみ軸ラベルを表示
+          display: i === 0,
           position: 'left',
           min: mn - pad,
           max: mx + pad,
@@ -414,10 +438,8 @@ function renderCharts(fieldMap, metrics) {
     state.charts.push(chart);
   }
 
-  // 最初のグラフを表示
   updateChartView();
 
-  // ナビゲーターを更新
   const dotsEl = document.getElementById('chartNavDots');
   dotsEl.innerHTML = metrics.map((_, i) =>
     `<div class="chart-dot${i === 0 ? ' active' : ''}" data-idx="${i}"></div>`
@@ -428,7 +450,6 @@ function renderCharts(fieldMap, metrics) {
 
   document.getElementById('chartNav').style.display = 'flex';
 
-  // スワイプ対応
   let touchStartX = 0;
   container.addEventListener('touchstart', e => { touchStartX = e.touches[0].clientX; }, { passive: true });
   container.addEventListener('touchend', e => {
@@ -447,7 +468,6 @@ function updateChartView() {
   document.getElementById('nextChartBtn').disabled = idx === metrics.length - 1;
   document.querySelectorAll('.chart-dot').forEach((d, i) => d.classList.toggle('active', i === idx));
 
-  // DOMが描画された後にリサイズ
   requestAnimationFrame(() => state.charts[idx]?.resize());
 }
 
@@ -495,7 +515,6 @@ function runAnalysis() {
   if (fieldNames.length === 0) { alert('圃場を1つ以上選択してください'); return; }
   if (metrics.length === 0)    { alert('表示項目を1つ以上選択してください'); return; }
 
-  // 期間フィルタ
   let fieldMap = {};
   for (const name of fieldNames) {
     const rows = filterPeriod(state.fields[name] || [], startDate, endDate);
@@ -506,7 +525,6 @@ function runAnalysis() {
     return;
   }
 
-  // 日付整合
   fieldMap = alignMode === 'interpolate'
     ? alignInterpolate(fieldMap)
     : alignCommon(fieldMap);
@@ -516,14 +534,11 @@ function runAnalysis() {
     return;
   }
 
-  // 累積再計算
   fieldMap = recomputeCumulative(fieldMap);
 
-  // 描画
   renderCharts(fieldMap, metrics);
   renderPreview(fieldMap, metrics, () => downloadCSV(fieldMap, metrics));
 
-  // 設定パネルを折りたたみ、サマリー表示
   document.getElementById('settingsPanel').style.display = 'none';
   const summary = document.getElementById('settingsSummary');
   summary.style.display = 'flex';
@@ -531,7 +546,6 @@ function runAnalysis() {
   document.getElementById('settingsSummaryText').textContent =
     `${periodText} | ${fieldNames.length}圃場 | ${metrics.length}指標`;
 
-  // チャートナビへスクロール
   document.getElementById('chartNav').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -560,9 +574,49 @@ async function handleFiles(files) {
   status.innerHTML = html;
 }
 
-// ---- 前年比較 -------------------------------------------
-const yearlyState = { chart: null };
+// ============================================================
+// 年度別比較
+// ============================================================
 
+// 月/日の範囲でデータをシーズン年ごとに抽出し、基準年（2000年）に正規化
+function extractSeasonalData(rows, startMonth, startDay, endMonth, endDay) {
+  const crossesYear = startMonth > endMonth ||
+    (startMonth === endMonth && startDay > endDay);
+  const startMD = startMonth * 100 + startDay;
+  const endMD   = endMonth   * 100 + endDay;
+
+  const byYear = {};
+  for (const row of rows) {
+    const parts = row.日付.split('-');
+    const y = parseInt(parts[0]);
+    const m = parseInt(parts[1]);
+    const d = parseInt(parts[2]);
+    const md = m * 100 + d;
+
+    // 期間内かチェック
+    const inRange = crossesYear ? (md >= startMD || md <= endMD)
+                                : (md >= startMD && md <= endMD);
+    if (!inRange) continue;
+
+    // シーズン年の特定（10月〜3月ならOct-Decは当年、Jan-Marは前年に属す）
+    const seasonYear = crossesYear ? (m >= startMonth ? y : y - 1) : y;
+
+    // X軸共通化: 基準年2000/2001に正規化
+    const refYear = (crossesYear && m < startMonth) ? 2001 : 2000;
+    const normDate = `${refYear}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+
+    if (!byYear[seasonYear]) byYear[seasonYear] = [];
+    byYear[seasonYear].push({ ...row, 日付: normDate });
+  }
+
+  const result = {};
+  for (const [year, yearRows] of Object.entries(byYear)) {
+    result[year] = yearRows.sort((a, b) => a.日付.localeCompare(b.日付));
+  }
+  return result;
+}
+
+// 年度別セレクタを描画（前年比較タブ用）
 function renderYearlySelectors() {
   const fieldNames = Object.keys(state.fields);
 
@@ -580,7 +634,7 @@ function renderYearlySelectors() {
     </label>`).join('');
 
   const mEl = document.getElementById('yearlyMetricSelect');
-  const available = getAvailableMetrics().filter(m => m !== 'データ数');
+  const available = getAvailableMetrics().filter(m => m !== 'データ数' && !(m in CUMULATIVE_MAP));
   const DEFAULT = '平均気温';
   mEl.innerHTML = `<div class="metric-grid">${
     available.map(m => `
@@ -591,85 +645,107 @@ function renderYearlySelectors() {
   }</div>`;
 }
 
-function updateYearlyHint() {
-  const startVal = document.getElementById('yearlyStartDate').value;
-  const endVal   = document.getElementById('yearlyEndDate').value;
-  const hintEl   = document.getElementById('yearlyHint');
-  if (startVal && endVal) {
-    const shiftYear = d => (parseInt(d.slice(0, 4)) - 1) + d.slice(4);
-    hintEl.textContent = `前年同期: ${shiftYear(startVal)} 〜 ${shiftYear(endVal)}`;
-  } else {
-    hintEl.textContent = '';
-  }
-}
-
-function runYearlyAnalysis() {
+// 年度別比較の実行
+function runMultiYearAnalysis() {
   const fieldName = document.querySelector('input[name="yearlyField"]:checked')?.value;
   const metric    = document.querySelector('input[name="yearlyMetric"]:checked')?.value;
-  const startVal  = document.getElementById('yearlyStartDate').value;
-  const endVal    = document.getElementById('yearlyEndDate').value;
+  const startMonth = parseInt(document.getElementById('yearlyStartMonth').value);
+  const startDay   = parseInt(document.getElementById('yearlyStartDay').value);
+  const endMonth   = parseInt(document.getElementById('yearlyEndMonth').value);
+  const endDay     = parseInt(document.getElementById('yearlyEndDay').value);
+  const mode       = document.querySelector('input[name="yearlyMode"]:checked')?.value || 'raw';
+  const chillThres = parseFloat(document.getElementById('chillThreshold').value) || 5;
 
   if (!fieldName || !metric) { alert('圃場と指標を選択してください'); return; }
-  if (!startVal || !endVal)  { alert('比較期間を指定してください'); return; }
+  if (!startMonth || !startDay || !endMonth || !endDay) {
+    alert('期間の月/日を正しく入力してください'); return;
+  }
 
-  const rows = state.fields[fieldName] || [];
-  const shiftYear = d => (parseInt(d.slice(0, 4)) - 1) + d.slice(4);
-  const lastStart = shiftYear(startVal);
-  const lastEnd   = shiftYear(endVal);
-  const thisYear  = startVal.slice(0, 4);
-  const lastYear  = lastStart.slice(0, 4);
+  const allRows = state.fields[fieldName] || [];
+  const seasonData = extractSeasonalData(allRows, startMonth, startDay, endMonth, endDay);
+  const years = Object.keys(seasonData).map(Number).sort();
 
-  const thisYearRows = rows.filter(r => r.日付 >= startVal && r.日付 <= endVal)
-                           .sort((a, b) => a.日付.localeCompare(b.日付));
-  const lastYearRows = rows.filter(r => r.日付 >= lastStart && r.日付 <= lastEnd)
-                           .sort((a, b) => a.日付.localeCompare(b.日付));
-
-  // 積算指標の場合: 期間先頭から累計を再計算
-  const isCumulative = metric in CUMULATIVE_MAP;
-  const recompute = filteredRows => {
-    if (!isCumulative) return filteredRows;
-    const srcCol = CUMULATIVE_MAP[metric];
-    let acc = 0;
-    return filteredRows.map(r => ({ ...r, [metric]: round3(acc += (r[srcCol] ?? 0)) }));
-  };
-
-  const thisComputed = recompute(thisYearRows);
-  const lastComputed = recompute(lastYearRows);
-
-  if (!thisComputed.length && !lastComputed.length) {
+  if (years.length === 0) {
     document.getElementById('yearlyChartContainer').innerHTML =
-      '<div class="error-card">指定期間のデータがありません</div>';
+      '<div class="error-card">指定期間にデータがありません</div>';
     document.getElementById('yearlyInfo').innerHTML = '';
     return;
   }
 
-  // X軸: 前年データを+1年シフトして今年の日付に揃える（年またぎ対応）
-  const shiftFwd = dateStr => {
-    const [y, m, d] = dateStr.split('-').map(Number);
-    return `${y + 1}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  // 表示モードに応じてデータ変換
+  const chartMetric = (mode === 'chill' || mode === 'chillhours') ? '低温値' : metric;
+  const processedData = {};
+
+  for (const year of years) {
+    let rows = [...seasonData[year]];
+
+    if (mode === 'cumulative') {
+      let acc = 0;
+      rows = rows.map(r => {
+        const srcCol = CUMULATIVE_MAP[metric] ?? metric;
+        acc = round3(acc + (r[srcCol] ?? 0));
+        return { ...r, [metric]: acc };
+      });
+
+    } else if (mode === 'chill') {
+      // 閾値以下の日数積算
+      let acc = 0;
+      rows = rows.map(r => {
+        const temp = r['平均気温'];
+        if (temp != null && temp <= chillThres) acc++;
+        return { ...r, '低温値': acc };
+      });
+
+    } else if (mode === 'chillhours') {
+      // 温度欠損積算（チル時間相当）
+      let acc = 0;
+      rows = rows.map(r => {
+        const temp = r['平均気温'];
+        if (temp != null && temp <= chillThres) {
+          acc = round3(acc + (chillThres - temp));
+        }
+        return { ...r, '低温値': acc };
+      });
+    }
+
+    processedData[year] = rows;
+  }
+
+  // 今年を基準に年ごとのスタイルを決定
+  const currentYear = new Date().getFullYear();
+  const makeStyle = year => {
+    const offset = currentYear - year; // 0=今年, 1=前年, 2=2年前, 3以上=それ以降
+    const idx = Math.max(0, SEASON_YEAR_STYLES.length - 1 - Math.min(offset, SEASON_YEAR_STYLES.length - 1));
+    return SEASON_YEAR_STYLES[idx];
   };
 
-  const makeDataset = (computedRows, label, color, dashed, isLastYear) => ({
-    label,
-    data: computedRows.map(r => ({ x: isLastYear ? shiftFwd(r.日付) : r.日付, y: r[metric] })),
-    borderColor: color,
-    backgroundColor: color + '22',
-    borderWidth: dashed ? 2 : 3,
-    borderDash: dashed ? [6, 4] : [],
-    pointRadius: 0,
-    pointHoverRadius: 6,
-    pointHitRadius: 20,
-    tension: 0.3,
-    fill: false,
+  const datasets = years.map(year => {
+    const rows = processedData[year];
+    const style = makeStyle(year);
+    const isCurrentYear = year === currentYear;
+    return {
+      label: `${year}年`,
+      data: rows.map(r => ({ x: r.日付, y: r[chartMetric] })),
+      borderColor: style.color,
+      backgroundColor: style.color + '22',
+      borderWidth: isCurrentYear ? 3 : 2,
+      borderDash: style.dash,
+      pointRadius: 0,
+      pointHoverRadius: 6,
+      pointHitRadius: 20,
+      tension: 0.3,
+      fill: false,
+    };
   });
 
-  const datasets = [];
-  if (thisComputed.length) datasets.push(makeDataset(thisComputed, `${thisYear}年（今年）`, '#3a7d44', false, false));
-  if (lastComputed.length) datasets.push(makeDataset(lastComputed, `${lastYear}年（前年）`, '#aaaaaa', true, true));
-
+  // チャート描画
   const container = document.getElementById('yearlyChartContainer');
   container.innerHTML = '<div class="yearly-chart-wrap"><canvas id="yearlyCanvas"></canvas></div>';
   if (yearlyState.chart) { yearlyState.chart.destroy(); yearlyState.chart = null; }
+
+  const yLabel = mode === 'chill' ? `低温積算日数（≤${chillThres}°C）` :
+                 mode === 'chillhours' ? `チル時間相当（≤${chillThres}°C）` :
+                 mode === 'cumulative' ? `${metric}（積算）` : metric;
 
   yearlyState.chart = new Chart(
     document.getElementById('yearlyCanvas').getContext('2d'), {
@@ -682,52 +758,202 @@ function runYearlyAnalysis() {
         scales: {
           x: {
             type: 'time',
-            time: { unit: 'day', displayFormats: { day: 'M/d' } },
+            time: {
+              unit: 'day',
+              displayFormats: { day: 'M/d' },
+              tooltipFormat: 'M月d日',
+            },
             ticks: { maxTicksLimit: 10, font: { size: 12 } },
           },
-          y: { ticks: { font: { size: 12 } } },
+          y: {
+            ticks: { font: { size: 12 } },
+            title: { display: true, text: yLabel, font: { size: 11 } },
+          },
         },
         plugins: {
           legend: { position: 'bottom', labels: { boxWidth: 14, font: { size: 13 } } },
-          tooltip: { callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y ?? '-'}` } },
+          tooltip: {
+            callbacks: {
+              title: ctx => {
+                if (!ctx[0]) return '';
+                const d = new Date(ctx[0].parsed.x);
+                return `${d.getMonth()+1}月${d.getDate()}日`;
+              },
+              label: c => `${c.dataset.label}: ${c.parsed.y?.toFixed(1) ?? '-'}`,
+            },
+          },
         },
       },
     }
   );
 
-  // サマリータイル（積算=期間累計の最終値、それ以外=期間平均）
-  const label = isCumulative ? '期間累計' : '期間平均';
-  const summarize = arr => {
-    if (!arr.length) return null;
-    if (isCumulative) return arr[arr.length - 1][metric];
-    const vals = arr.map(r => r[metric]).filter(v => v != null);
-    return vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : null;
+  // サマリー（各年の期間集計値）
+  const isCumulative = (mode !== 'raw');
+  const summarize = rows => {
+    const vals = rows.map(r => r[chartMetric]).filter(v => v != null);
+    if (!vals.length) return null;
+    if (isCumulative) return vals[vals.length - 1]; // 最終積算値
+    return round3(vals.reduce((s, v) => s + v, 0) / vals.length); // 期間平均
   };
-  const thisVal = summarize(thisComputed);
-  const lastVal = summarize(lastComputed);
-  const diff = (thisVal != null && lastVal != null) ? thisVal - lastVal : null;
-  const diffSign  = diff == null ? '' : diff > 0.1 ? '▲' : diff < -0.1 ? '▼' : '－';
-  const diffClass = diff == null ? 'diff-same' : diff > 0.1 ? 'diff-up' : diff < -0.1 ? 'diff-down' : 'diff-same';
-  const fmt = v => v != null ? v.toFixed(1) : '-';
-  const slashDate = d => d.slice(5).replace('-', '/');
-  const periodStr     = `${slashDate(startVal)} 〜 ${slashDate(endVal)}`;
-  const lastPeriodStr = `${slashDate(lastStart)} 〜 ${slashDate(lastEnd)}`;
 
-  document.getElementById('yearlyInfo').innerHTML = `
-    <div class="yearly-summary">
-      <div class="yearly-tile">
-        <div class="yearly-tile-label">${thisYear}年 ${periodStr}<br>${label}</div>
-        <div class="yearly-tile-val">${fmt(thisVal)}</div>
-        <div class="yearly-tile-diff ${diffClass}">
-          ${diff != null ? `${diffSign} 前年比 ${Math.abs(diff).toFixed(1)}` : '前年データなし'}
+  const fmt = v => v != null ? v.toFixed(1) : '-';
+  const summarizedVals = years.map(y => ({ year: y, val: summarize(processedData[y]) }));
+  const allVals = summarizedVals.map(s => s.val).filter(v => v != null);
+  const baseVal = summarizedVals.find(s => s.year === currentYear - 1)?.val ?? null;
+
+  let infoHtml = `<div class="yearly-summary multi">`;
+  for (const { year, val } of summarizedVals) {
+    const style = makeStyle(year);
+    let diffHtml = '';
+    if (baseVal != null && val != null && year !== currentYear - 1) {
+      const diff = val - baseVal;
+      const sign = diff > 0.05 ? '▲' : diff < -0.05 ? '▼' : '－';
+      const cls  = diff > 0.05 ? 'diff-up' : diff < -0.05 ? 'diff-down' : 'diff-same';
+      diffHtml = `<div class="yearly-tile-diff ${cls}">${sign} 前年比 ${Math.abs(diff).toFixed(1)}</div>`;
+    } else {
+      const lbl = isCumulative ? '期間累計' : '期間平均';
+      diffHtml = `<div class="yearly-tile-diff diff-same">${lbl}</div>`;
+    }
+    infoHtml += `
+      <div class="yearly-tile" style="border-top:3px solid ${style.color}">
+        <div class="yearly-tile-label">${year}年</div>
+        <div class="yearly-tile-val">${fmt(val)}</div>
+        ${diffHtml}
+      </div>`;
+  }
+  infoHtml += `</div>`;
+  document.getElementById('yearlyInfo').innerHTML = infoHtml;
+}
+
+// ============================================================
+// 物候記録
+// ============================================================
+
+function renderPhenoFieldList() {
+  const datalist = document.getElementById('phenoFieldList');
+  const fieldNames = Object.keys(state.fields);
+  datalist.innerHTML = fieldNames.map(n => `<option value="${esc(n)}">`).join('');
+}
+
+function renderPhenoList() {
+  const records = loadPhenoRecords();
+  const el = document.getElementById('phenoList');
+  const allEntries = [];
+
+  for (const [field, entries] of Object.entries(records)) {
+    for (const e of entries) {
+      allEntries.push({ field, ...e });
+    }
+  }
+
+  if (allEntries.length === 0) {
+    el.innerHTML = '<p class="empty-msg" style="padding:12px 4px">まだ記録がありません</p>';
+    return;
+  }
+
+  allEntries.sort((a, b) =>
+    a.field.localeCompare(b.field) || b.year - a.year
+  );
+
+  let html = `<div class="field-list-header" style="margin-top:12px">
+    <h3>記録一覧（${allEntries.length}件）</h3>
+  </div>`;
+
+  for (const e of allEntries) {
+    const id = btoa(encodeURIComponent(`${e.field}_${e.year}`));
+    html += `
+      <div class="pheno-record-card" data-id="${id}" data-field="${esc(e.field)}" data-year="${e.year}">
+        <div class="pheno-record-header">
+          <span class="pheno-field-badge">${esc(e.field)}</span>
+          <span class="pheno-year">${e.year}年度</span>
+          <button class="btn-delete pheno-delete-btn" data-field="${esc(e.field)}" data-year="${e.year}">削除</button>
         </div>
-      </div>
-      <div class="yearly-tile">
-        <div class="yearly-tile-label">${lastYear}年 ${lastPeriodStr}<br>${label}</div>
-        <div class="yearly-tile-val">${fmt(lastVal)}</div>
-        <div class="yearly-tile-diff diff-same">（前年）</div>
-      </div>
-    </div>`;
+        <div class="pheno-dates-grid">
+          <div class="pheno-date-item">
+            <span class="pheno-date-label">開花日</span>
+            <span class="pheno-date-val">${formatDate(e.bloomDate)}</span>
+          </div>
+          <div class="pheno-date-item">
+            <span class="pheno-date-label">収穫開始</span>
+            <span class="pheno-date-val">${formatDate(e.harvestStart)}</span>
+          </div>
+          <div class="pheno-date-item">
+            <span class="pheno-date-label">収穫終了</span>
+            <span class="pheno-date-val">${formatDate(e.harvestEnd)}</span>
+          </div>
+          <div class="pheno-date-item${e.leafDrop ? ' leafdrop-alert' : ''}">
+            <span class="pheno-date-label">早期落葉</span>
+            <span class="pheno-date-val">${e.leafDrop ? formatDate(e.leafDrop) : '—'}</span>
+          </div>
+        </div>
+        ${e.memo ? `<div class="pheno-memo">${esc(e.memo)}</div>` : ''}
+      </div>`;
+  }
+
+  el.innerHTML = html;
+
+  el.querySelectorAll('.pheno-delete-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const field = btn.dataset.field;
+      const year  = parseInt(btn.dataset.year);
+      if (!confirm(`${field} の ${year}年度の記録を削除しますか？`)) return;
+
+      const recs = loadPhenoRecords();
+      if (recs[field]) {
+        recs[field] = recs[field].filter(e => e.year !== year);
+        if (recs[field].length === 0) delete recs[field];
+      }
+      savePhenoRecords(recs);
+      renderPhenoList();
+    });
+  });
+}
+
+function handlePhenoSave() {
+  const field = document.getElementById('phenoFieldName').value.trim();
+  const year  = parseInt(document.getElementById('phenoYear').value);
+
+  if (!field) { alert('圃場名を入力してください'); return; }
+  if (!year || year < 2000 || year > 2035) { alert('年度を正しく入力してください'); return; }
+
+  const entry = {
+    year,
+    bloomDate:    document.getElementById('phenoBloom').value       || null,
+    harvestStart: document.getElementById('phenoHarvestStart').value || null,
+    harvestEnd:   document.getElementById('phenoHarvestEnd').value   || null,
+    leafDrop:     document.getElementById('phenoLeafDrop').value     || null,
+    memo:         document.getElementById('phenoMemo').value.trim()  || null,
+    updatedAt:    new Date().toISOString(),
+  };
+
+  const recs = loadPhenoRecords();
+  if (!recs[field]) recs[field] = [];
+
+  // 同じ圃場・年度の記録は上書き
+  const existing = recs[field].findIndex(e => e.year === year);
+  if (existing >= 0) {
+    if (!confirm(`${field} の ${year}年度の記録が既にあります。上書きしますか？`)) return;
+    recs[field][existing] = entry;
+  } else {
+    recs[field].push(entry);
+  }
+
+  savePhenoRecords(recs);
+
+  // フォームクリア（圃場名・年度は残す）
+  ['phenoBloom','phenoHarvestStart','phenoHarvestEnd','phenoLeafDrop'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('phenoMemo').value = '';
+
+  renderPhenoList();
+  alert(`${field} ${year}年度の記録を保存しました`);
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return '—';
+  const [, m, d] = dateStr.split('-');
+  return `${parseInt(m)}/${parseInt(d)}`;
 }
 
 // ---- Tab Nav --------------------------------------------
@@ -753,6 +979,8 @@ function renderAll() {
   renderFieldCheckboxes();
   renderMetricCheckboxes();
   renderYearlySelectors();
+  renderPhenoFieldList();
+  renderPhenoList();
 }
 
 // ---- Weather --------------------------------------------
@@ -856,7 +1084,7 @@ function renderWeather(d) {
   document.getElementById('weatherDisplay').innerHTML = html;
 }
 
-// ---- Auto Fetch (GitHub Pages data/ folder) -------------
+// ---- Auto Fetch -----------------------------------------
 async function loadAutoData() {
   const statusEl = document.getElementById('autoFetchStatus');
   statusEl.className = 'auto-status loading';
@@ -876,7 +1104,6 @@ async function loadAutoData() {
       try {
         const csvRes = await fetch(`./data/${field.file}`, { cache: 'no-cache' });
         if (!csvRes.ok) continue;
-        // Shift-JIS対応：ArrayBufferで受け取りデコード
         const buf = await csvRes.arrayBuffer();
         let text = '';
         for (const enc of ['shift-jis', 'utf-8-sig', 'utf-8']) {
@@ -905,34 +1132,11 @@ async function loadAutoData() {
   }
 }
 
-// テキストから直接パース（autoFetch用）
-async function parseCSVText(text, fieldName) {
-  return new Promise((resolve, reject) => {
-    Papa.parse(text, {
-      header: true, skipEmptyLines: true,
-      complete(res) {
-        const headers = res.meta.fields || [];
-        try {
-          if (RAW_COLUMNS.every(c => headers.includes(c))) {
-            resolve({ fieldName, summary: buildDailySummary(res.data, fieldName) });
-          } else {
-            resolve({ fieldName, summary: normalizeDailyCSV(res.data, headers, fieldName) });
-          }
-        } catch (e) { reject(e); }
-      },
-      error: e => reject(new Error(e.message)),
-    });
-  });
-}
-
 // ---- Init -----------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
   loadFields();
   initTabs();
   renderAll();
-
-  // 起動時に自動取得データの状態を確認
-  // 起動時に自動でデータを読み込む
   loadAutoData();
 
   document.getElementById('autoFetchBtn').addEventListener('click', loadAutoData);
@@ -940,16 +1144,56 @@ document.addEventListener('DOMContentLoaded', () => {
   const csvInput = document.getElementById('csvInput');
   csvInput.addEventListener('change', e => { handleFiles(e.target.files); csvInput.value = ''; });
 
+  // 圃場比較
   document.getElementById('analyzeBtn').addEventListener('click', () => {
     if (Object.keys(state.fields).length === 0) { alert('まずCSVファイルを読み込んでください'); return; }
     runAnalysis();
   });
-
   document.getElementById('checkAllMetrics').addEventListener('click', () =>
     document.querySelectorAll('#metricCheckboxes input').forEach(c => c.checked = true));
   document.getElementById('uncheckAllMetrics').addEventListener('click', () =>
     document.querySelectorAll('#metricCheckboxes input').forEach(c => c.checked = false));
+  document.getElementById('changeSettingsBtn').addEventListener('click', () => {
+    document.getElementById('settingsPanel').style.display = 'block';
+    document.getElementById('settingsSummary').style.display = 'none';
+    document.getElementById('chartNav').style.display = 'none';
+    document.getElementById('chartsContainer').innerHTML = '';
+    document.getElementById('previewSection').innerHTML = '';
+    state.charts.forEach(c => c.destroy());
+    state.charts = [];
+    state.currentMetrics = [];
+    document.getElementById('settingsPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  document.getElementById('prevChartBtn').addEventListener('click', () => navigateChart(-1));
+  document.getElementById('nextChartBtn').addEventListener('click', () => navigateChart(1));
+  document.getElementById('scaleToggleBtn').addEventListener('click', () => {
+    state.individualScale = !state.individualScale;
+    const btn = document.getElementById('scaleToggleBtn');
+    btn.textContent = state.individualScale ? '個別スケール' : '共通スケール';
+    btn.classList.toggle('active', state.individualScale);
+    if (state.lastFieldMap && state.currentMetrics.length > 0) {
+      const prevIdx = state.currentChartIdx;
+      renderCharts(state.lastFieldMap, state.currentMetrics);
+      state.currentChartIdx = prevIdx;
+      updateChartView();
+    }
+  });
 
+  // 年度別比較
+  document.getElementById('yearlyAnalyzeBtn').addEventListener('click', () => {
+    if (Object.keys(state.fields).length === 0) { alert('まずCSVファイルを読み込んでください'); return; }
+    runMultiYearAnalysis();
+  });
+
+  // 低温閾値の変更を"チル時間"ラベルに反映
+  document.getElementById('chillThreshold').addEventListener('input', e => {
+    document.getElementById('chillHoursThresholdDisplay').textContent = e.target.value;
+  });
+
+  // 物候記録
+  document.getElementById('phenoSaveBtn').addEventListener('click', handlePhenoSave);
+
+  // 気象情報
   loadLocation();
   document.getElementById('fetchWeatherBtn').addEventListener('click', fetchWeather);
   document.getElementById('geoBtn').addEventListener('click', () => {
@@ -978,51 +1222,11 @@ document.addEventListener('DOMContentLoaded', () => {
           2: '位置情報を取得できませんでした（電波・GPS不良）。',
           3: '位置情報の取得がタイムアウトしました。再度お試しください。',
         }[err.code] ?? `エラー: ${err.message}`;
-        const disp = document.getElementById('weatherDisplay');
-        disp.innerHTML = `<div class="error-card">${msg}</div>`;
+        document.getElementById('weatherDisplay').innerHTML = `<div class="error-card">${msg}</div>`;
         btn.textContent = '🌍 現在地を使用';
         btn.disabled = false;
       },
       { timeout: 15000, enableHighAccuracy: false }
     );
-  });
-
-  // 前年比較: デフォルト日付（今月1日〜今日）
-  const _today = new Date();
-  const _firstOfMonth = new Date(_today.getFullYear(), _today.getMonth(), 1);
-  const _fmtDate = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  document.getElementById('yearlyStartDate').value = _fmtDate(_firstOfMonth);
-  document.getElementById('yearlyEndDate').value   = _fmtDate(_today);
-  updateYearlyHint();
-  document.getElementById('yearlyStartDate').addEventListener('change', updateYearlyHint);
-  document.getElementById('yearlyEndDate').addEventListener('change', updateYearlyHint);
-  document.getElementById('yearlyAnalyzeBtn').addEventListener('click', runYearlyAnalysis);
-
-  document.getElementById('prevChartBtn').addEventListener('click', () => navigateChart(-1));
-  document.getElementById('nextChartBtn').addEventListener('click', () => navigateChart(1));
-
-  document.getElementById('scaleToggleBtn').addEventListener('click', () => {
-    state.individualScale = !state.individualScale;
-    const btn = document.getElementById('scaleToggleBtn');
-    btn.textContent = state.individualScale ? '個別スケール' : '共通スケール';
-    btn.classList.toggle('active', state.individualScale);
-    if (state.lastFieldMap && state.currentMetrics.length > 0) {
-      const prevIdx = state.currentChartIdx;
-      renderCharts(state.lastFieldMap, state.currentMetrics);
-      state.currentChartIdx = prevIdx;
-      updateChartView();
-    }
-  });
-
-  document.getElementById('changeSettingsBtn').addEventListener('click', () => {
-    document.getElementById('settingsPanel').style.display = 'block';
-    document.getElementById('settingsSummary').style.display = 'none';
-    document.getElementById('chartNav').style.display = 'none';
-    document.getElementById('chartsContainer').innerHTML = '';
-    document.getElementById('previewSection').innerHTML = '';
-    state.charts.forEach(c => c.destroy());
-    state.charts = [];
-    state.currentMetrics = [];
-    document.getElementById('settingsPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 });

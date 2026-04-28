@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>山椒 圃場モニター</title>
-  <link rel="stylesheet" href="style.css?v=2">
+  <link rel="stylesheet" href="style.css?v=3">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
@@ -18,8 +18,9 @@
 <nav class="tabs">
   <button class="tab-btn active" data-tab="files">ファイル</button>
   <button class="tab-btn" data-tab="compare">圃場比較</button>
-  <button class="tab-btn" data-tab="yearly">前年比較</button>
-  <button class="tab-btn" data-tab="weather">気象情報</button>
+  <button class="tab-btn" data-tab="yearly">年度比較</button>
+  <button class="tab-btn" data-tab="pheno">物候記録</button>
+  <button class="tab-btn" data-tab="weather">気象</button>
 </nav>
 
 <main>
@@ -27,14 +28,12 @@
   <!-- ===== ファイル管理 ===== -->
   <section id="tab-files" class="tab-content active">
 
-    <!-- 自動取得 -->
     <div class="card">
       <span class="card-label">Farmo 自動取得</span>
       <div id="autoFetchStatus" class="auto-status">未取得</div>
       <button class="btn-primary" id="autoFetchBtn" style="margin-bottom:0">最新データを取得</button>
     </div>
 
-    <!-- 手動アップロード -->
     <div class="section-divider">または手動でCSVをアップロード</div>
     <div class="upload-area">
       <div class="upload-icon">&#128193;</div>
@@ -50,7 +49,6 @@
   <!-- ===== 圃場比較 ===== -->
   <section id="tab-compare" class="tab-content">
 
-    <!-- 設定パネル -->
     <div id="settingsPanel">
       <div class="card">
         <span class="card-label">期間指定</span>
@@ -99,13 +97,11 @@
       <button class="btn-primary" id="analyzeBtn">分析・グラフ表示</button>
     </div>
 
-    <!-- 設定サマリー（グラフ表示時に代替表示） -->
     <div id="settingsSummary" class="settings-summary" style="display:none">
       <div class="settings-summary-text" id="settingsSummaryText"></div>
       <button class="btn-text" id="changeSettingsBtn">設定変更</button>
     </div>
 
-    <!-- グラフナビゲーター -->
     <div id="chartNav" class="chart-nav-bar" style="display:none">
       <button class="chart-nav-btn" id="prevChartBtn" disabled>&#8249;</button>
       <div class="chart-nav-center">
@@ -117,12 +113,11 @@
     </div>
 
     <div id="chartsContainer"></div>
-
     <div id="previewSection"></div>
 
   </section>
 
-  <!-- ===== 前年比較 ===== -->
+  <!-- ===== 年度別比較 ===== -->
   <section id="tab-yearly" class="tab-content">
 
     <div class="card">
@@ -140,19 +135,117 @@
     </div>
 
     <div class="card">
-      <span class="card-label">比較期間</span>
-      <div class="date-row">
-        <input type="date" id="yearlyStartDate">
+      <span class="card-label">比較期間（月/日）</span>
+      <div class="md-range-row">
+        <input type="number" id="yearlyStartMonth" class="md-num" min="1" max="12" value="10">
+        <span class="md-unit">月</span>
+        <input type="number" id="yearlyStartDay" class="md-num" min="1" max="31" value="1">
+        <span class="md-unit">日</span>
         <span class="date-sep">〜</span>
-        <input type="date" id="yearlyEndDate">
+        <input type="number" id="yearlyEndMonth" class="md-num" min="1" max="12" value="4">
+        <span class="md-unit">月</span>
+        <input type="number" id="yearlyEndDay" class="md-num" min="1" max="31" value="30">
+        <span class="md-unit">日</span>
       </div>
-      <p class="hint" id="yearlyHint"></p>
+      <p class="hint">年をまたぐ期間（例: 10月〜翌4月）も指定できます</p>
     </div>
 
-    <button class="btn-primary" id="yearlyAnalyzeBtn">前年同期間と比較</button>
+    <div class="card">
+      <span class="card-label">表示モード</span>
+      <div class="mode-options">
+        <label class="mode-option">
+          <input type="radio" name="yearlyMode" value="raw" checked>
+          <div class="mode-option-inner">
+            <span class="mode-name">実測値</span>
+            <span class="mode-desc">日ごとの測定値を重ねて比較</span>
+          </div>
+        </label>
+        <label class="mode-option">
+          <input type="radio" name="yearlyMode" value="cumulative">
+          <div class="mode-option-inner">
+            <span class="mode-name">積算値</span>
+            <span class="mode-desc">期間先頭からの累計で比較</span>
+          </div>
+        </label>
+        <label class="mode-option">
+          <input type="radio" name="yearlyMode" value="chill">
+          <div class="mode-option-inner">
+            <span class="mode-name">低温積算</span>
+            <span class="mode-desc">
+              平均気温 ≤ <input type="number" id="chillThreshold" class="inline-num" value="5" min="-20" max="30" step="0.5">°C の日数を積算
+            </span>
+          </div>
+        </label>
+        <label class="mode-option">
+          <input type="radio" name="yearlyMode" value="chillhours">
+          <div class="mode-option-inner">
+            <span class="mode-name">チル時間</span>
+            <span class="mode-desc">
+              平均気温 ≤ <span id="chillHoursThresholdDisplay">5</span>°C の温度欠損積算 (Σ 閾値−気温)
+            </span>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <button class="btn-primary" id="yearlyAnalyzeBtn">年度別に比較</button>
 
     <div id="yearlyChartContainer"></div>
     <div id="yearlyInfo"></div>
+
+  </section>
+
+  <!-- ===== 物候記録 ===== -->
+  <section id="tab-pheno" class="tab-content">
+
+    <div class="card">
+      <span class="card-label">記録の追加・編集</span>
+
+      <div class="form-field">
+        <label class="form-label">圃場名</label>
+        <input type="text" id="phenoFieldName" list="phenoFieldList"
+               placeholder="圃場名を入力または選択" class="form-input">
+        <datalist id="phenoFieldList"></datalist>
+      </div>
+
+      <div class="form-field">
+        <label class="form-label">年度</label>
+        <div style="display:flex;align-items:center;gap:6px">
+          <input type="number" id="phenoYear" min="2020" max="2035" value="2025" class="form-input form-input-sm">
+          <span class="form-unit">年度</span>
+        </div>
+      </div>
+
+      <div class="pheno-date-grid">
+        <div class="form-field">
+          <label class="form-label">開花日</label>
+          <input type="date" id="phenoBloom" class="form-input">
+        </div>
+        <div class="form-field">
+          <label class="form-label">収穫開始日</label>
+          <input type="date" id="phenoHarvestStart" class="form-input">
+        </div>
+        <div class="form-field">
+          <label class="form-label">収穫終了日</label>
+          <input type="date" id="phenoHarvestEnd" class="form-input">
+        </div>
+        <div class="form-field">
+          <label class="form-label">早期落葉日</label>
+          <input type="date" id="phenoLeafDrop" class="form-input">
+        </div>
+      </div>
+      <p class="hint" style="margin-bottom:8px">早期落葉：病害等による落葉があれば記録（→不時発芽リスクの追跡に使用）</p>
+
+      <div class="form-field">
+        <label class="form-label">メモ</label>
+        <textarea id="phenoMemo" class="form-input form-textarea" rows="3"
+                  placeholder="病害・天候・特記事項など"></textarea>
+      </div>
+
+      <button class="btn-primary" id="phenoSaveBtn" style="margin-top:10px">記録する</button>
+    </div>
+
+    <div id="phenoList"></div>
 
   </section>
 
@@ -181,6 +274,6 @@
 
 </main>
 
-<script src="app.js?v=2"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>
