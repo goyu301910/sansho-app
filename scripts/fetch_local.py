@@ -4,18 +4,26 @@ PC上で実行し、GitHubに自動プッシュする
 実行方法: run_update.bat をダブルクリック
 """
 import os
+import sys
 import json
 import subprocess
 import requests
-from bs4 import BeautifulSoup
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta, date
 from pathlib import Path
 
+# Windows日本語環境でUTF-8出力
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 # ---- 設定 ------------------------------------------------
-BASE_DIR = Path(__file__).parent.parent
-DATA_DIR  = BASE_DIR / "data"
-CRED_FILE = BASE_DIR / ".env"
-BASE_URL  = "https://farmo.tech/pc"
+BASE_DIR   = Path(__file__).parent.parent
+DATA_DIR   = BASE_DIR / "data"
+CRED_FILE  = BASE_DIR / ".env"
+BASE_URL   = "https://farmo.tech/pc"
+API_URL    = f"{BASE_URL}/php/update_summary.php"
+FETCH_DAYS = 730  # 約2年分
+CHECK_ITEMS = ["temperature", "underground", "vwc", "illuminance", "ec"]
 
 # ---- 認証情報の読み込み ----------------------------------
 def load_credentials():
@@ -52,21 +60,99 @@ def login(session, email, password):
         timeout=30,
     )
     resp.raise_for_status()
-    if "ログアウト" not in resp.text:
-        raise RuntimeError("ログインに失敗しました。メールアドレス・パスワードを確認してください。")
+    if "login_success" not in resp.text and "ログアウト" not in resp.text:
+        raise RuntimeError(f"ログインに失敗しました。レスポンス: {resp.text[:100]}")
     print("ログイン成功")
+    session.get(f"{BASE_URL}/", timeout=30)
 
-# ---- CSV取得 --------------------------------------------
-def fetch_csv(session, sid):
-    resp = session.get(
-        f"{BASE_URL}/summary_csv.php?sid={sid}",
-        headers={"Referer": f"{BASE_URL}/"},
-        timeout=30,
+# ---- 14日チャンクでCSV取得 -------------------------------
+def fetch_chunk(session, sid, start_dt, end_dt):
+    """1チャンク（最大14日）のCSVをAPI経由で取得"""
+    referer = f"{BASE_URL}/summary_csv.php?sid={sid}"
+
+    # check_item を個別フィールドとして送る（multipart形式）
+    post_data = [
+        ("mode",       "download_csv"),
+        ("sensor_id",  sid),
+        ("start_date", start_dt.strftime("%Y-%m-%d")),
+        ("end_date",   end_dt.strftime("%Y-%m-%d")),
+    ]
+    for item in CHECK_ITEMS:
+        post_data.append(("check_item[]", item))
+
+    resp = session.post(
+        API_URL,
+        data=post_data,
+        headers={
+            "Referer":           referer,
+            "X-Requested-With":  "XMLHttpRequest",
+            "Accept":            "application/json, text/javascript, */*; q=0.01",
+        },
+        timeout=60,
     )
     resp.raise_for_status()
-    if b"<!DOCTYPE" in resp.content[:50] or b"<html" in resp.content[:50]:
-        raise ValueError("HTMLが返されました（認証失敗）")
-    return resp.content
+    result = resp.json()
+    status = result.get("result")
+    if status == "csv_data_empty":
+        return b""
+    if status != "get_success":
+        raise ValueError(f"API エラー: {status}")
+
+    dl_link = result["dl_link"]
+    # dl_link が相対パスの場合は BASE_URL のルートから結合
+    if dl_link.startswith("http"):
+        csv_url = dl_link
+    elif dl_link.startswith("/"):
+        csv_url = "https://farmo.tech" + dl_link
+    else:
+        csv_url = f"{BASE_URL}/{dl_link}"
+
+    csv_resp = session.get(csv_url, headers={"Referer": referer}, timeout=60)
+    csv_resp.raise_for_status()
+
+    # サーバー上の一時ファイルを削除
+    try:
+        session.post(API_URL, data={"mode": "delete_csv_file", "dl_link": dl_link}, timeout=10)
+    except Exception:
+        pass
+
+    return csv_resp.content
+
+# ---- 全期間CSV取得（14日チャンク分割） --------------------
+def fetch_csv(session, sid, days_back=FETCH_DAYS):
+    today   = date.today()
+    start   = today - timedelta(days=days_back)
+
+    all_lines  = []
+    header_saved = False
+    total_chunks = 0
+
+    chunk_start = start
+    while chunk_start <= today:
+        # 年またぎ禁止・最大14日
+        year_end   = date(chunk_start.year, 12, 31)
+        chunk_end  = min(chunk_start + timedelta(days=13), today, year_end)
+
+        content = fetch_chunk(session, sid, chunk_start, chunk_end)
+
+        if content:
+            # Farmo CSVはShift-JIS（cp932）
+            text = content.decode("cp932", errors="replace")
+            lines = text.splitlines()
+            if not header_saved and lines:
+                all_lines.append(lines[0])   # ヘッダー行は一度だけ
+                header_saved = True
+            all_lines.extend(lines[1:])      # データ行
+            total_chunks += 1
+
+        chunk_start = chunk_end + timedelta(days=1)
+
+    print(f"    チャンク数: {total_chunks}, 行数: {len(all_lines)}")
+
+    if len(all_lines) <= 1:
+        raise ValueError("データが空です")
+
+    return "\n".join(all_lines).encode("utf-8-sig")
 
 # ---- Git プッシュ ----------------------------------------
 def git_push():
@@ -86,6 +172,7 @@ def main():
     print(f"\n{'='*50}")
     print(f"山椒圃場モニター データ更新")
     print(f"開始: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"取得期間: 過去 {FETCH_DAYS} 日間")
     print(f"{'='*50}")
 
     DATA_DIR.mkdir(exist_ok=True)
@@ -121,6 +208,10 @@ def main():
         except Exception as e:
             print(f"  ✗ {name}: {e}")
 
+    # デバッグファイルを削除
+    for f in DATA_DIR.glob("debug_*.html"):
+        f.unlink()
+
     with open(DATA_DIR / "manifest.json", "w", encoding="utf-8") as f:
         json.dump(manifest, f, ensure_ascii=False, indent=2)
 
@@ -138,4 +229,6 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         print(f"\nエラー: {e}")
+        import traceback
+        traceback.print_exc()
     input("\nEnterキーで閉じる...")

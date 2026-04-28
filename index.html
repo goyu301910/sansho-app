@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>山椒 圃場モニター</title>
-  <link rel="stylesheet" href="style.css?v=3">
+  <link rel="stylesheet" href="style.css?v=4">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
@@ -17,8 +17,7 @@
 
 <nav class="tabs">
   <button class="tab-btn active" data-tab="files">ファイル</button>
-  <button class="tab-btn" data-tab="compare">圃場比較</button>
-  <button class="tab-btn" data-tab="yearly">年度比較</button>
+  <button class="tab-btn" data-tab="yearly">比較</button>
   <button class="tab-btn" data-tab="pheno">物候記録</button>
   <button class="tab-btn" data-tab="weather">気象</button>
 </nav>
@@ -46,78 +45,7 @@
     <div id="fieldList"></div>
   </section>
 
-  <!-- ===== 圃場比較 ===== -->
-  <section id="tab-compare" class="tab-content">
-
-    <div id="settingsPanel">
-      <div class="card">
-        <span class="card-label">期間指定</span>
-        <div class="date-row">
-          <input type="date" id="startDate">
-          <span class="date-sep">〜</span>
-          <input type="date" id="endDate">
-        </div>
-      </div>
-
-      <div class="card">
-        <span class="card-label">日付整合モード</span>
-        <div class="radio-group">
-          <label class="radio-item">
-            <input type="radio" name="alignMode" value="common" checked>
-            <span>共通期間のみ</span>
-          </label>
-          <label class="radio-item">
-            <input type="radio" name="alignMode" value="interpolate">
-            <span>欠損日を補間</span>
-          </label>
-        </div>
-      </div>
-
-      <div class="card">
-        <span class="card-label">圃場を選択</span>
-        <div id="fieldCheckboxes">
-          <p class="empty-msg">まずCSVファイルを読み込んでください</p>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="metric-header">
-          <span class="card-label">表示項目（複数選択可）</span>
-          <div class="metric-actions">
-            <button class="btn-text" id="checkAllMetrics">全選択</button>
-            <span class="sep-text">|</span>
-            <button class="btn-text" id="uncheckAllMetrics">解除</button>
-          </div>
-        </div>
-        <div id="metricCheckboxes">
-          <p class="empty-msg">まずCSVファイルを読み込んでください</p>
-        </div>
-      </div>
-
-      <button class="btn-primary" id="analyzeBtn">分析・グラフ表示</button>
-    </div>
-
-    <div id="settingsSummary" class="settings-summary" style="display:none">
-      <div class="settings-summary-text" id="settingsSummaryText"></div>
-      <button class="btn-text" id="changeSettingsBtn">設定変更</button>
-    </div>
-
-    <div id="chartNav" class="chart-nav-bar" style="display:none">
-      <button class="chart-nav-btn" id="prevChartBtn" disabled>&#8249;</button>
-      <div class="chart-nav-center">
-        <div class="chart-nav-label" id="chartNavLabel"></div>
-        <div class="chart-nav-dots" id="chartNavDots"></div>
-        <button class="scale-toggle-btn" id="scaleToggleBtn">共通スケール</button>
-      </div>
-      <button class="chart-nav-btn" id="nextChartBtn">&#8250;</button>
-    </div>
-
-    <div id="chartsContainer"></div>
-    <div id="previewSection"></div>
-
-  </section>
-
-  <!-- ===== 年度比較 ===== -->
+  <!-- ===== 比較 ===== -->
   <section id="tab-yearly" class="tab-content">
 
     <div class="card">
@@ -126,6 +54,13 @@
         <input type="date" id="yearlyStartDate">
         <span class="date-sep">〜</span>
         <input type="date" id="yearlyEndDate">
+      </div>
+    </div>
+
+    <div class="card">
+      <span class="card-label">圃場を選択</span>
+      <div id="yearlyFieldSelect">
+        <p class="empty-msg">まずデータを読み込んでください</p>
       </div>
     </div>
 
@@ -143,7 +78,7 @@
           <input type="radio" name="yearlyMode" value="raw" checked>
           <div class="mode-option-inner">
             <span class="mode-name">実測値</span>
-            <span class="mode-desc">日ごとの測定値を全圃場で比較</span>
+            <span class="mode-desc">日ごとの測定値を比較</span>
           </div>
         </label>
         <label class="mode-option">
@@ -260,6 +195,6 @@
 
 </main>
 
-<script src="app.js?v=3"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>

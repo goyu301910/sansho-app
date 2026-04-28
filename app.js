@@ -578,12 +578,31 @@ async function handleFiles(files) {
 // 年度比較（全圃場・期間指定）
 // ============================================================
 
-// 指標セレクタを描画
+// 圃場チェックボックスと指標ラジオボタンを描画
 function renderYearlySelectors() {
+  const fieldNames = Object.keys(state.fields);
+  const noData = '<p class="empty-msg">まずデータを読み込んでください</p>';
+
+  // 圃場チェックボックス
+  const fEl = document.getElementById('yearlyFieldSelect');
+  if (!fieldNames.length) {
+    fEl.innerHTML = noData;
+  } else {
+    fEl.innerHTML = fieldNames.map(name => {
+      const color = fieldColor(name);
+      return `<label class="cb-row">
+        <input type="checkbox" value="${esc(name)}" checked>
+        <span class="cb-dot" style="background:${color}"></span>
+        <span class="cb-label">${esc(name)}</span>
+      </label>`;
+    }).join('');
+  }
+
+  // 指標ラジオボタン
   const mEl = document.getElementById('yearlyMetricSelect');
   const available = getAvailableMetrics().filter(m => m !== 'データ数' && !(m in CUMULATIVE_MAP));
   if (!available.length) {
-    mEl.innerHTML = '<p class="empty-msg">まずデータを読み込んでください</p>';
+    mEl.innerHTML = noData;
     return;
   }
   const DEFAULT = '平均気温';
@@ -604,16 +623,18 @@ function runPeriodAnalysis() {
   const mode       = document.querySelector('input[name="yearlyMode"]:checked')?.value || 'raw';
   const chillThres = parseFloat(document.getElementById('chillThreshold').value) || 5;
 
-  if (Object.keys(state.fields).length === 0) { alert('まずCSVファイルを読み込んでください'); return; }
+  const selectedNames = [...document.querySelectorAll('#yearlyFieldSelect input:checked')].map(c => c.value);
+  if (!selectedNames.length) { alert('圃場を1つ以上選択してください'); return; }
   if (!metric) { alert('指標を選択してください'); return; }
 
   const chartMetric = (mode === 'chill' || mode === 'chillhours') ? '低温値' : metric;
 
-  // 圃場ごとにデータを準備
+  // 選択された圃場ごとにデータを準備
   const datasets = [];
   const summaryData = [];
 
-  for (const [name, allRows] of Object.entries(state.fields)) {
+  for (const name of selectedNames) {
+    const allRows = state.fields[name] || [];
     let rows = filterPeriod(allRows, startDate, endDate)
                  .sort((a, b) => a.日付.localeCompare(b.日付));
     if (!rows.length) continue;
@@ -874,8 +895,6 @@ function esc(s) {
 
 function renderAll() {
   renderFieldList();
-  renderFieldCheckboxes();
-  renderMetricCheckboxes();
   renderYearlySelectors();
   renderPhenoFieldList();
   renderPhenoList();
@@ -1042,42 +1061,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const csvInput = document.getElementById('csvInput');
   csvInput.addEventListener('change', e => { handleFiles(e.target.files); csvInput.value = ''; });
 
-  // 圃場比較
-  document.getElementById('analyzeBtn').addEventListener('click', () => {
-    if (Object.keys(state.fields).length === 0) { alert('まずCSVファイルを読み込んでください'); return; }
-    runAnalysis();
-  });
-  document.getElementById('checkAllMetrics').addEventListener('click', () =>
-    document.querySelectorAll('#metricCheckboxes input').forEach(c => c.checked = true));
-  document.getElementById('uncheckAllMetrics').addEventListener('click', () =>
-    document.querySelectorAll('#metricCheckboxes input').forEach(c => c.checked = false));
-  document.getElementById('changeSettingsBtn').addEventListener('click', () => {
-    document.getElementById('settingsPanel').style.display = 'block';
-    document.getElementById('settingsSummary').style.display = 'none';
-    document.getElementById('chartNav').style.display = 'none';
-    document.getElementById('chartsContainer').innerHTML = '';
-    document.getElementById('previewSection').innerHTML = '';
-    state.charts.forEach(c => c.destroy());
-    state.charts = [];
-    state.currentMetrics = [];
-    document.getElementById('settingsPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  });
-  document.getElementById('prevChartBtn').addEventListener('click', () => navigateChart(-1));
-  document.getElementById('nextChartBtn').addEventListener('click', () => navigateChart(1));
-  document.getElementById('scaleToggleBtn').addEventListener('click', () => {
-    state.individualScale = !state.individualScale;
-    const btn = document.getElementById('scaleToggleBtn');
-    btn.textContent = state.individualScale ? '個別スケール' : '共通スケール';
-    btn.classList.toggle('active', state.individualScale);
-    if (state.lastFieldMap && state.currentMetrics.length > 0) {
-      const prevIdx = state.currentChartIdx;
-      renderCharts(state.lastFieldMap, state.currentMetrics);
-      state.currentChartIdx = prevIdx;
-      updateChartView();
-    }
-  });
-
-  // 年度比較
+  // 比較タブ
   const _today2 = new Date();
   const _fmt2 = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const _sixMonthsAgo = new Date(_today2); _sixMonthsAgo.setMonth(_sixMonthsAgo.getMonth() - 6);
