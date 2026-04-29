@@ -1,0 +1,34 @@
+{
+  "users": {
+    "iwamoto": {
+      "name": "岩本",
+      "fields": ["岩本さん2(不良)下", "岩本さん1(良好)上"],
+      "pinHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"
+    },
+    "morimoto": {
+      "name": "森本",
+      "fields": ["森本さん2(良好)下", "森本さん1(不良)上"],
+      "pinHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"
+    },
+    "kawata": {
+      "name": "河田",
+      "fields": ["河田さん"],
+      "pinHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"
+    },
+    "ichimoto": {
+      "name": "市本",
+      "fields": ["市本さん"],
+      "pinHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"
+    },
+    "omori": {
+      "name": "大森",
+      "fields": ["大森さん"],
+      "pinHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"
+    },
+    "kawakami": {
+      "name": "川上",
+      "fields": ["川上さん"],
+      "pinHash": "03ac674216f3e15c761ee1a5e255f067953623c8b388b4459e13f978d7c846f4"
+    }
+  }
+}

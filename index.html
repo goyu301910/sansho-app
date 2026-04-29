@@ -11,6 +11,36 @@
 </head>
 <body>
 
+<!-- ===== PIN認証オーバーレイ ===== -->
+<div id="pinOverlay" class="pin-overlay">
+  <div class="pin-card">
+    <div class="pin-logo">山椒 圃場モニター</div>
+    <div class="pin-username" id="pinUserName"></div>
+    <div class="pin-label">PINを入力してください</div>
+    <div class="pin-dots">
+      <span class="pin-dot"></span>
+      <span class="pin-dot"></span>
+      <span class="pin-dot"></span>
+      <span class="pin-dot"></span>
+    </div>
+    <div class="pin-error" id="pinError"></div>
+    <div class="pin-grid">
+      <button class="pin-key" data-val="1">1</button>
+      <button class="pin-key" data-val="2">2</button>
+      <button class="pin-key" data-val="3">3</button>
+      <button class="pin-key" data-val="4">4</button>
+      <button class="pin-key" data-val="5">5</button>
+      <button class="pin-key" data-val="6">6</button>
+      <button class="pin-key" data-val="7">7</button>
+      <button class="pin-key" data-val="8">8</button>
+      <button class="pin-key" data-val="9">9</button>
+      <button class="pin-key pin-key-del" data-val="del">⌫</button>
+      <button class="pin-key" data-val="0">0</button>
+      <div></div>
+    </div>
+  </div>
+</div>
+
 <header>
   <h1>山椒 圃場モニター</h1>
 </header>

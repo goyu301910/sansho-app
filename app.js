@@ -2,6 +2,116 @@
 // 山椒 圃場モニター - app.js
 // ============================================================
 
+// ============================================================
+// 認証
+// ============================================================
+
+const authState = {
+  isAdmin: true,
+  userKey: null,
+  userName: null,
+  allowedFields: null, // null = 全圃場（管理者）
+};
+
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function initAuth() {
+  const params = new URLSearchParams(window.location.search);
+  const userKey = params.get('u');
+  if (!userKey) return; // 管理者モード（?u= なし）
+
+  let config;
+  try {
+    const res = await fetch('./data/config.json', { cache: 'no-cache' });
+    if (!res.ok) throw new Error();
+    config = await res.json();
+  } catch {
+    document.body.innerHTML =
+      '<div style="padding:48px;text-align:center;color:#999;font-size:15px">設定ファイルを読み込めませんでした</div>';
+    await new Promise(() => {});
+  }
+
+  const userConfig = config.users?.[userKey];
+  if (!userConfig) {
+    document.body.innerHTML =
+      '<div style="padding:48px;text-align:center;color:#999;font-size:15px">このURLは無効です</div>';
+    await new Promise(() => {});
+  }
+
+  authState.isAdmin = false;
+  authState.userKey = userKey;
+  authState.userName = userConfig.name;
+  authState.allowedFields = userConfig.fields;
+
+  // セッション済みチェック
+  if (sessionStorage.getItem(`sansho_auth_${userKey}`) === 'ok') {
+    applyUserUI();
+    return;
+  }
+
+  // PIN入力を待つ
+  await waitForPin(userConfig);
+  sessionStorage.setItem(`sansho_auth_${userKey}`, 'ok');
+  document.getElementById('pinOverlay').classList.remove('visible');
+  applyUserUI();
+}
+
+function waitForPin(userConfig) {
+  return new Promise(resolve => {
+    const overlay = document.getElementById('pinOverlay');
+    document.getElementById('pinUserName').textContent = `${userConfig.name} さん`;
+    overlay.classList.add('visible');
+
+    let pin = '';
+    const dots = document.querySelectorAll('.pin-dot');
+    const errorEl = document.getElementById('pinError');
+
+    function updateDots() {
+      dots.forEach((d, i) => d.classList.toggle('filled', i < pin.length));
+    }
+
+    document.querySelectorAll('.pin-key').forEach(key => {
+      key.addEventListener('click', async () => {
+        const val = key.dataset.val;
+        if (val === 'del') {
+          pin = pin.slice(0, -1);
+          errorEl.textContent = '';
+        } else if (pin.length < 4) {
+          pin += val;
+          if (pin.length === 4) {
+            updateDots();
+            const hash = await sha256(pin);
+            if (hash === userConfig.pinHash) {
+              resolve();
+            } else {
+              pin = '';
+              errorEl.textContent = 'PINが違います。もう一度入力してください。';
+            }
+            return;
+          }
+        }
+        updateDots();
+      });
+    });
+  });
+}
+
+function applyUserUI() {
+  // ファイルタブを非表示
+  document.querySelector('.tab-btn[data-tab="files"]').style.display = 'none';
+  // 比較タブをアクティブに
+  document.querySelectorAll('.tab-btn, .tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelector('.tab-btn[data-tab="yearly"]').classList.add('active');
+  document.getElementById('tab-yearly').classList.add('active');
+}
+
+// ============================================================
+// 定数
+// ============================================================
+
 // ---- 定数 -----------------------------------------------
 const FIELD_COLORS = [
   '#2196F3','#FF5722','#4CAF50','#9C27B0',
@@ -1019,6 +1129,9 @@ async function loadAutoData() {
 
     let loaded = 0;
     for (const field of manifest.fields || []) {
+      // ユーザーモード：許可圃場のみ読み込む
+      if (!authState.isAdmin && authState.allowedFields &&
+          !authState.allowedFields.includes(field.name)) continue;
       try {
         const csvRes = await fetch(`./data/${field.file}`, { cache: 'no-cache' });
         if (!csvRes.ok) continue;
@@ -1051,9 +1164,21 @@ async function loadAutoData() {
 }
 
 // ---- Init -----------------------------------------------
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   loadFields();
   initTabs();
+  loadLocation();
+
+  // 認証（ユーザーモードの場合はPIN入力を待つ）
+  await initAuth();
+
+  // ユーザーモードの場合、許可圃場以外をstateから除去
+  if (!authState.isAdmin && authState.allowedFields) {
+    for (const name of Object.keys(state.fields)) {
+      if (!authState.allowedFields.includes(name)) delete state.fields[name];
+    }
+  }
+
   renderAll();
   loadAutoData();
 
@@ -1080,7 +1205,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('phenoSaveBtn').addEventListener('click', handlePhenoSave);
 
   // 気象情報
-  loadLocation();
   document.getElementById('fetchWeatherBtn').addEventListener('click', fetchWeather);
   document.getElementById('geoBtn').addEventListener('click', () => {
     if (!navigator.geolocation) {

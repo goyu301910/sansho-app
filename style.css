@@ -821,6 +821,85 @@ main { padding: 12px; max-width: 640px; margin: 0 auto; padding-bottom: 40px; }
 .diff-down { color: #1976d2; }
 .diff-same { color: var(--text-sub); }
 
+/* ===== PIN認証オーバーレイ ===== */
+.pin-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--green);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.pin-overlay.visible { display: flex; }
+
+.pin-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 32px 28px;
+  width: 300px;
+  max-width: 90vw;
+  text-align: center;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+.pin-logo {
+  font-size: 12px;
+  color: var(--text-sub);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin-bottom: 10px;
+}
+.pin-username {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.pin-label {
+  font-size: 13px;
+  color: var(--text-sub);
+  margin-bottom: 18px;
+}
+.pin-dots {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+.pin-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--green);
+  background: transparent;
+  transition: background 0.15s;
+}
+.pin-dot.filled { background: var(--green); }
+.pin-error {
+  font-size: 12px;
+  color: var(--red);
+  min-height: 20px;
+  margin-bottom: 12px;
+}
+.pin-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.pin-key {
+  padding: 16px 0;
+  font-size: 22px;
+  font-weight: 600;
+  border: none;
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.pin-key:active { background: var(--green-pale); }
+.pin-key-del { font-size: 18px; color: var(--text-sub); }
+
 /* ===== Responsive ===== */
 @media (min-width: 480px) {
   .weather-grid { grid-template-columns: repeat(4, 1fr); }
