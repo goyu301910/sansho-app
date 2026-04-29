@@ -1128,6 +1128,9 @@ async function loadAutoData() {
       ? new Date(manifest.updated).toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' })
       : '-';
 
+    // 管理者モードは毎回クリーンな状態から全圃場を読み込む
+    if (authState.isAdmin) state.fields = {};
+
     let loaded = 0;
     for (const field of manifest.fields || []) {
       // ユーザーモード：許可圃場のみ読み込む
