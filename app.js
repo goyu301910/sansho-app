@@ -676,7 +676,8 @@ async function handleFiles(files) {
     }
   }
 
-  saveFields(); renderAll();
+  if (authState.isAdmin) saveFields();
+  renderAll();
 
   let html = '';
   if (ok.length) html += `<div class="status-msg status-ok">✓ ${ok.join('、')} を読み込みました</div>`;
@@ -1152,7 +1153,7 @@ async function loadAutoData() {
       } catch (e) { console.warn(field.name, e); }
     }
 
-    saveFields();
+    if (authState.isAdmin) saveFields(); // ユーザーモードでは他農家のデータを上書きしない
     renderAll();
 
     statusEl.className = 'auto-status ok';
