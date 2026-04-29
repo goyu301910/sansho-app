@@ -19,7 +19,7 @@ FETCH_DAYS  = 730
 CHECK_ITEMS = ["temperature", "underground", "vwc", "illuminance", "ec"]
 
 
-def get_cookie_via_playwright(email: str, password: str) -> str:
+def get_cookie_via_playwright(email: str, password: str) -> list:
     """Playwrightでログインし、pc_user_device_id クッキー値を返す"""
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -89,26 +89,25 @@ def get_cookie_via_playwright(email: str, password: str) -> str:
         print("ログイン成功")
 
         cookies = context.cookies()
+        print(f"[DEBUG] 取得したCookie一覧: {[c['name'] for c in cookies]}")
         browser.close()
 
-    for c in cookies:
-        if c["name"] == "pc_user_device_id":
-            print(f"Cookie取得成功: pc_user_device_id={c['value'][:8]}...")
-            return c["value"]
+    if not cookies:
+        raise RuntimeError("Cookieが1件も取得できませんでした")
 
-    raise RuntimeError(
-        "pc_user_device_id が見つかりません。"
-        "ログインは成功しましたがCookieが発行されませんでした。"
-    )
+    # デバッグ: 全Cookie名を出力
+    print(f"Cookie取得: {[c['name'] for c in cookies]}")
+    return cookies
 
 
-def build_session(cookie_value: str) -> requests.Session:
+def build_session(all_cookies: list) -> requests.Session:
     session = requests.Session()
     session.headers.update({
         "User-Agent":      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36",
         "Accept-Language": "ja,en-US;q=0.9",
     })
-    session.cookies.set("pc_user_device_id", cookie_value, domain="farmo.tech")
+    for c in all_cookies:
+        session.cookies.set(c["name"], c["value"], domain=c.get("domain", "farmo.tech"))
 
     # セッション確立
     resp = session.get(f"{BASE_URL}/", timeout=30)
@@ -208,8 +207,8 @@ def main():
 
     DATA_DIR.mkdir(exist_ok=True)
 
-    cookie_value = get_cookie_via_playwright(email, password)
-    session      = build_session(cookie_value)
+    all_cookies = get_cookie_via_playwright(email, password)
+    session     = build_session(all_cookies)
 
     with open(FIELDS_FILE, encoding="utf-8") as f:
         fields = json.load(f)
