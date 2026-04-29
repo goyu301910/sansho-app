@@ -27,6 +27,12 @@ CHECK_ITEMS = ["temperature", "underground", "vwc", "illuminance", "ec"]
 
 # ---- 認証情報の読み込み ----------------------------------
 def load_credentials():
+    # GitHub Actions など環境変数が設定されていればそちらを優先
+    env_email    = os.environ.get("FARMO_EMAIL", "")
+    env_password = os.environ.get("FARMO_PASSWORD", "")
+    if env_email and env_password:
+        return env_email, env_password
+
     if not CRED_FILE.exists():
         print("=" * 50)
         print(".env ファイルが見つかりません。初回設定を行います。")
@@ -217,7 +223,9 @@ def main():
 
     print(f"\n取得完了: {len(manifest['fields'])} 件")
 
-    git_push()
+    # GitHub Actions では git 操作をワークフロー側で行う
+    if not os.environ.get("GITHUB_ACTIONS"):
+        git_push()
 
     print(f"\n{'='*50}")
     print("更新完了！アプリに最新データが反映されます。")
@@ -231,4 +239,6 @@ if __name__ == "__main__":
         print(f"\nエラー: {e}")
         import traceback
         traceback.print_exc()
-    input("\nEnterキーで閉じる...")
+        sys.exit(1)
+    if not os.environ.get("GITHUB_ACTIONS"):
+        input("\nEnterキーで閉じる...")
