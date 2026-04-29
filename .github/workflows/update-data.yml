@@ -21,11 +21,15 @@ jobs:
           python-version: '3.11'
 
       - name: 依存ライブラリをインストール
-        run: pip install requests beautifulsoup4
+        run: pip install requests playwright
+
+      - name: Playwright ブラウザをインストール
+        run: playwright install chromium --with-deps
 
       - name: Farmo からCSVを取得
         env:
-          FARMO_COOKIE: ${{ secrets.FARMO_COOKIE }}
+          FARMO_EMAIL:    ${{ secrets.FARMO_EMAIL }}
+          FARMO_PASSWORD: ${{ secrets.FARMO_PASSWORD }}
         run: python scripts/fetch_farmo.py
 
       - name: 変更をコミット・プッシュ
