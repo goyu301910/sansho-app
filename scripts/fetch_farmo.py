@@ -29,18 +29,58 @@ def get_cookie_via_playwright(email: str, password: str) -> str:
         page = context.new_page()
 
         print("ログインページを開いています...")
-        page.goto(f"{BASE_URL}/login.php", timeout=30000)
+        page.goto(f"{BASE_URL}/login.php", timeout=60000)
+        page.wait_for_load_state("domcontentloaded", timeout=60000)
 
-        page.fill('input[name="login_email"]', email)
-        page.fill('input[name="login_pass"]', password)
-        page.click('input[type="submit"], button[type="submit"]')
+        # フォームが現れるまで待つ（どちらのセレクターでも対応）
+        email_sel = None
+        for sel in ['input[name="login_email"]', 'input[type="email"]', 'input[name="email"]']:
+            try:
+                page.wait_for_selector(sel, timeout=10000)
+                email_sel = sel
+                break
+            except Exception:
+                continue
+        if email_sel is None:
+            # デバッグ用: ページHTMLを出力
+            print("[DEBUG] ログインページHTML (先頭2000文字):")
+            print(page.content()[:2000])
+            raise RuntimeError("メールアドレス入力欄が見つかりません")
+
+        pass_sel = None
+        for sel in ['input[name="login_pass"]', 'input[type="password"]', 'input[name="password"]']:
+            try:
+                page.wait_for_selector(sel, timeout=5000)
+                pass_sel = sel
+                break
+            except Exception:
+                continue
+        if pass_sel is None:
+            print("[DEBUG] パスワード欄が見つかりません。ページHTML (先頭3000文字):")
+            print(page.content()[:3000])
+            raise RuntimeError("パスワード入力欄が見つかりません")
+
+        print(f"フォーム検出: email={email_sel}, pass={pass_sel}")
+        page.fill(email_sel, email)
+        page.fill(pass_sel, password)
+
+        # submitボタンをクリック
+        for sel in ['input[type="submit"]', 'button[type="submit"]', 'button:has-text("ログイン")', 'input[value*="ログイン"]']:
+            try:
+                page.click(sel, timeout=5000)
+                break
+            except Exception:
+                continue
 
         # ログイン後のリダイレクト完了を待つ
         page.wait_for_load_state("networkidle", timeout=30000)
 
         # ログイン成功確認
-        if "ログアウト" not in page.content() and "login_success" not in page.url:
-            # ダッシュボードへ移動してみる
+        content = page.content()
+        if "ログアウト" not in content:
+            print(f"[DEBUG] ログイン後URL: {page.url}")
+            print(f"[DEBUG] ページ内容 (先頭1000文字):\n{content[:1000]}")
+            # ダッシュボードへ直接移動して再確認
             page.goto(f"{BASE_URL}/", timeout=30000)
             page.wait_for_load_state("networkidle", timeout=15000)
             if "ログアウト" not in page.content():
