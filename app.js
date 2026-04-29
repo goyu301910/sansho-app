@@ -407,7 +407,7 @@ function renderFieldList() {
     const color = fieldColor(name);
     const first = rows[0]?.日付 ?? '-';
     const last  = rows[rows.length - 1]?.日付 ?? '-';
-    html += `<div class="field-card">
+    html += `<div class="field-card" style="border-left-color:${color}">
       <div class="field-dot" style="background:${color}"></div>
       <div class="field-info">
         <div class="field-name">${esc(name)}</div>
