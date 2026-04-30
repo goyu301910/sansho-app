@@ -726,6 +726,48 @@ function renderYearlySelectors() {
   }</div>`;
 }
 
+// ---- 比較グラフ用ヘルパー ------------------------------------
+
+function buildModeRows(allRows, startDate, endDate, mode, metric, chillThres) {
+  let rows = filterPeriod(allRows, startDate, endDate)
+               .sort((a, b) => a.日付.localeCompare(b.日付));
+  if (!rows.length) return [];
+  if (mode === 'cumulative') {
+    let acc = 0;
+    rows = rows.map(r => {
+      const srcCol = CUMULATIVE_MAP[metric] ?? metric;
+      acc = round3(acc + (r[srcCol] ?? 0));
+      return { ...r, [metric]: acc };
+    });
+  } else if (mode === 'chill') {
+    let acc = 0;
+    rows = rows.map(r => {
+      const temp = r['平均気温'];
+      if (temp != null && temp <= chillThres) acc++;
+      return { ...r, '低温値': acc };
+    });
+  } else if (mode === 'chillhours') {
+    let acc = 0;
+    rows = rows.map(r => {
+      const temp = r['平均気温'];
+      if (temp != null && temp <= chillThres) acc = round3(acc + (chillThres - temp));
+      return { ...r, '低温値': acc };
+    });
+  }
+  return rows;
+}
+
+// 日付を基準年2000に正規化（年をまたぐ比較のためX軸を揃える）
+function toRefDate(dateStr) {
+  return '2000' + dateStr.slice(4);
+}
+
+function shiftYearBy(dateStr, delta) {
+  const d = new Date(dateStr + 'T00:00:00');
+  d.setFullYear(d.getFullYear() + delta);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
 // 全圃場を対象に指定期間・モードで比較グラフを表示
 function runPeriodAnalysis() {
   const metric     = document.querySelector('input[name="yearlyMetric"]:checked')?.value;
@@ -736,48 +778,28 @@ function runPeriodAnalysis() {
 
   const selectedField = document.querySelector('#yearlyFieldSelect input[name="yearlyField"]:checked')?.value;
   if (!selectedField) { alert('圃場を選択してください'); return; }
-  const selectedNames = [selectedField];
   if (!metric) { alert('指標を選択してください'); return; }
 
   const chartMetric = (mode === 'chill' || mode === 'chillhours') ? '低温値' : metric;
+  const allRows  = state.fields[selectedField] || [];
+  const color    = fieldColor(selectedField);
 
-  // 選択された圃場ごとにデータを準備
-  const datasets = [];
+  // 当年・前年の期間
+  const prevStart = shiftYearBy(startDate, -1);
+  const prevEnd   = shiftYearBy(endDate,   -1);
+  const curYear   = startDate.slice(0, 4);
+  const prevYear  = prevStart.slice(0, 4);
+
+  const curRows  = buildModeRows(allRows, startDate, endDate, mode, metric, chillThres);
+  const prevRows = buildModeRows(allRows, prevStart, prevEnd, mode, metric, chillThres);
+
+  const datasets    = [];
   const summaryData = [];
 
-  for (const name of selectedNames) {
-    const allRows = state.fields[name] || [];
-    let rows = filterPeriod(allRows, startDate, endDate)
-                 .sort((a, b) => a.日付.localeCompare(b.日付));
-    if (!rows.length) continue;
-
-    if (mode === 'cumulative') {
-      let acc = 0;
-      rows = rows.map(r => {
-        const srcCol = CUMULATIVE_MAP[metric] ?? metric;
-        acc = round3(acc + (r[srcCol] ?? 0));
-        return { ...r, [metric]: acc };
-      });
-    } else if (mode === 'chill') {
-      let acc = 0;
-      rows = rows.map(r => {
-        const temp = r['平均気温'];
-        if (temp != null && temp <= chillThres) acc++;
-        return { ...r, '低温値': acc };
-      });
-    } else if (mode === 'chillhours') {
-      let acc = 0;
-      rows = rows.map(r => {
-        const temp = r['平均気温'];
-        if (temp != null && temp <= chillThres) acc = round3(acc + (chillThres - temp));
-        return { ...r, '低温値': acc };
-      });
-    }
-
-    const color = fieldColor(name);
+  if (curRows.length) {
     datasets.push({
-      label: name,
-      data: rows.map(r => ({ x: r.日付, y: r[chartMetric] })),
+      label: `${curYear}年`,
+      data: curRows.map(r => ({ x: toRefDate(r.日付), y: r[chartMetric], actualDate: r.日付 })),
       borderColor: color,
       backgroundColor: color + '22',
       borderWidth: 2.5,
@@ -787,13 +809,32 @@ function runPeriodAnalysis() {
       tension: 0.3,
       fill: false,
     });
-
-    const vals = rows.map(r => r[chartMetric]).filter(v => v != null);
-    const isCumulative = mode !== 'raw';
+    const vals = curRows.map(r => r[chartMetric]).filter(v => v != null);
     const summary = !vals.length ? null
-      : isCumulative ? vals[vals.length - 1]
+      : mode !== 'raw' ? vals[vals.length - 1]
       : round3(vals.reduce((s, v) => s + v, 0) / vals.length);
-    summaryData.push({ name, color, summary, days: rows.length });
+    summaryData.push({ label: `${curYear}年`, color, summary, days: curRows.length, prev: false });
+  }
+
+  if (prevRows.length) {
+    datasets.push({
+      label: `${prevYear}年（前年）`,
+      data: prevRows.map(r => ({ x: toRefDate(r.日付), y: r[chartMetric], actualDate: r.日付 })),
+      borderColor: color,
+      backgroundColor: 'transparent',
+      borderWidth: 1.5,
+      borderDash: [6, 3],
+      pointRadius: 0,
+      pointHoverRadius: 6,
+      pointHitRadius: 20,
+      tension: 0.3,
+      fill: false,
+    });
+    const vals = prevRows.map(r => r[chartMetric]).filter(v => v != null);
+    const summary = !vals.length ? null
+      : mode !== 'raw' ? vals[vals.length - 1]
+      : round3(vals.reduce((s, v) => s + v, 0) / vals.length);
+    summaryData.push({ label: `${prevYear}年（前年）`, color, summary, days: prevRows.length, prev: true });
   }
 
   if (!datasets.length) {
@@ -834,7 +875,12 @@ function runPeriodAnalysis() {
         },
         plugins: {
           legend: { position: 'bottom', labels: { boxWidth: 14, font: { size: 13 } } },
-          tooltip: { callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y?.toFixed(1) ?? '-'}` } },
+          tooltip: {
+            callbacks: {
+              title: items => items[0]?.raw?.actualDate ?? '',
+              label: c => `${c.dataset.label}: ${c.parsed.y?.toFixed(1) ?? '-'}`,
+            },
+          },
         },
       },
     }
@@ -843,13 +889,30 @@ function runPeriodAnalysis() {
   // サマリータイル
   const fmt = v => v != null ? v.toFixed(1) : '—';
   const lbl = mode !== 'raw' ? '期間累計' : '期間平均';
+
+  // 前年比の差分計算
+  const curSummary  = summaryData.find(d => !d.prev)?.summary;
+  const prevSummary = summaryData.find(d =>  d.prev)?.summary;
+  const diff = (curSummary != null && prevSummary != null) ? round3(curSummary - prevSummary) : null;
+
   let infoHtml = `<div class="yearly-summary multi">`;
-  for (const { name, color, summary, days } of summaryData) {
+  for (const { label, color: c, summary, days, prev } of summaryData) {
+    const borderStyle = prev ? `border-top:3px dashed ${c}` : `border-top:3px solid ${c}`;
     infoHtml += `
-      <div class="yearly-tile" style="border-top:3px solid ${color}">
-        <div class="yearly-tile-label" style="font-size:10px;word-break:break-all">${esc(name)}</div>
+      <div class="yearly-tile" style="${borderStyle}">
+        <div class="yearly-tile-label">${esc(label)}</div>
         <div class="yearly-tile-val">${fmt(summary)}</div>
         <div class="yearly-tile-diff diff-same">${lbl}（${days}日）</div>
+      </div>`;
+  }
+  if (diff != null) {
+    const diffClass = diff > 0 ? 'diff-up' : diff < 0 ? 'diff-down' : 'diff-same';
+    const diffSign  = diff > 0 ? '+' : '';
+    infoHtml += `
+      <div class="yearly-tile" style="border-top:3px solid #aaa">
+        <div class="yearly-tile-label">前年比</div>
+        <div class="yearly-tile-val ${diffClass}">${diffSign}${fmt(diff)}</div>
+        <div class="yearly-tile-diff diff-same">${curYear}年 − ${prevYear}年</div>
       </div>`;
   }
   infoHtml += `</div>`;
