@@ -757,9 +757,12 @@ function buildModeRows(allRows, startDate, endDate, mode, metric, chillThres) {
   return rows;
 }
 
-// 日付を基準年2000に正規化（年をまたぐ比較のためX軸を揃える）
-function toRefDate(dateStr) {
-  return '2000' + dateStr.slice(4);
+// 日付を基準年2000に正規化（期間開始年を0とした相対年で揃える）
+// 例: 期間 2025-11〜2026-04 → 2025→2000、2026→2001 とすることで年またぎも正しく並ぶ
+function toRefDate(dateStr, periodStartYear) {
+  const dateYear = parseInt(dateStr.slice(0, 4));
+  const refYear  = 2000 + (dateYear - periodStartYear);
+  return refYear + dateStr.slice(4);
 }
 
 function shiftYearBy(dateStr, delta) {
@@ -787,8 +790,10 @@ function runPeriodAnalysis() {
   // 当年・前年の期間
   const prevStart = shiftYearBy(startDate, -1);
   const prevEnd   = shiftYearBy(endDate,   -1);
-  const curYear   = startDate.slice(0, 4);
-  const prevYear  = prevStart.slice(0, 4);
+  const curYear        = startDate.slice(0, 4);
+  const prevYear       = prevStart.slice(0, 4);
+  const curStartYear   = parseInt(curYear);
+  const prevStartYear  = parseInt(prevYear);
 
   const curRows  = buildModeRows(allRows, startDate, endDate, mode, metric, chillThres);
   const prevRows = buildModeRows(allRows, prevStart, prevEnd, mode, metric, chillThres);
@@ -799,7 +804,7 @@ function runPeriodAnalysis() {
   if (curRows.length) {
     datasets.push({
       label: `${curYear}年`,
-      data: curRows.map(r => ({ x: toRefDate(r.日付), y: r[chartMetric], actualDate: r.日付 })),
+      data: curRows.map(r => ({ x: toRefDate(r.日付, curStartYear), y: r[chartMetric], actualDate: r.日付 })),
       borderColor: color,
       backgroundColor: color + '22',
       borderWidth: 2.5,
@@ -819,7 +824,7 @@ function runPeriodAnalysis() {
   if (prevRows.length) {
     datasets.push({
       label: `${prevYear}年（前年）`,
-      data: prevRows.map(r => ({ x: toRefDate(r.日付), y: r[chartMetric], actualDate: r.日付 })),
+      data: prevRows.map(r => ({ x: toRefDate(r.日付, prevStartYear), y: r[chartMetric], actualDate: r.日付 })),
       borderColor: color,
       backgroundColor: 'transparent',
       borderWidth: 1.5,
