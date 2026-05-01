@@ -776,6 +776,28 @@ main {
 .diff-down { color: var(--blue); }
 .diff-same { color: var(--text-sub); }
 
+/* ===== 気象 圃場選択 ===== */
+.weather-field-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.weather-field-btn {
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 2px solid var(--border);
+  background: var(--card);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+.weather-field-btn.active {
+  border-color: var(--green);
+  background: var(--green-pale);
+  color: var(--green);
+}
+
 /* ===== WAGRI 指標カード ===== */
 #wagriMetricSelect {
   display: grid;

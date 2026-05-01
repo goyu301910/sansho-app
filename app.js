@@ -13,6 +13,7 @@ const authState = {
   allowedFields: null, // null = 全圃場（管理者）
   fieldLat: null,
   fieldLon: null,
+  adminFields: [],
 };
 
 async function sha256(str) {
@@ -45,6 +46,14 @@ async function initAuth() {
         document.getElementById('pinOverlay').classList.remove('visible');
       }
     }
+    // 座標付き圃場を取得
+    try {
+      const fieldsRes = await fetch('./data/fields.json', { cache: 'no-cache' });
+      if (fieldsRes.ok) {
+        const fieldsJson = await fieldsRes.json();
+        authState.adminFields = fieldsJson.filter(f => f.lat != null && f.lon != null);
+      }
+    } catch (_) {}
     return;
   }
 
@@ -1309,6 +1318,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('lat').value = authState.fieldLat;
     document.getElementById('lon').value = authState.fieldLon;
     fetchWeather();
+  } else if (authState.isAdmin && authState.adminFields.length) {
+    // 管理者モード: 圃場選択ボタンを挿入
+    const fieldBtnHtml = `
+      <div class="card" id="weatherFieldCard">
+        <span class="card-label">圃場を選択</span>
+        <div class="weather-field-btns">${authState.adminFields.map(f => `
+          <button class="weather-field-btn" data-lat="${f.lat}" data-lon="${f.lon}">${f.name}</button>`).join('')}
+        </div>
+      </div>`;
+    document.getElementById('tab-weather').insertAdjacentHTML('afterbegin', fieldBtnHtml);
+    document.getElementById('weatherFieldCard').addEventListener('click', e => {
+      const btn = e.target.closest('.weather-field-btn');
+      if (!btn) return;
+      document.querySelectorAll('.weather-field-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('lat').value = btn.dataset.lat;
+      document.getElementById('lon').value = btn.dataset.lon;
+      fetchWeather();
+    });
+    loadLocation();
   } else {
     loadLocation();
   }
