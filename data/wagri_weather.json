@@ -1,5 +1,5 @@
 {
-  "updated": "2026-05-01T06:46:52Z",
+  "updated": "2026-05-01T06:58:31Z",
   "period": {
     "start": "2025-05-01",
     "end": "2026-04-30"
@@ -9,25 +9,57 @@
       "name": "河田さん",
       "lat": 34.8141829,
       "lon": 133.8951461,
-      "data": {}
+      "data": {},
+      "errors": {
+        "平均気温": "400 Client Error: Bad Request for url: https://api.wagri2.net/wagri-mesh/weather/AMD?userid=u9d8975393&authKey=8d9ea7e36f62354a0d8ae626834e1dd354f412faf6cecea991c5ca5178314f45&dataset=TMP_mea&type=nc4&startdate=2025-05-01&enddate=2026-04-30&latitude=34.8141829&longitude=133.8951461",
+        "最高気温": "400 Client Error: Bad Request for url: https://api.wagri2.net/wagri-mesh/weather/AMD?userid=u9d8975393&authKey=8d9ea7e36f62354a0d8ae626834e1dd354f412faf6cecea991c5ca5178314f45&dataset=TMP_max&type=nc4&startdate=2025-05-01&enddate=2026-04-30&latitude=34.8141829&longitude=133.8951461",
+        "最低気温": "400 Client Error: Bad Request for url: https://api.wagri2.net/wagri-mesh/weather/AMD?userid=u9d8975393&authKey=8d9ea7e36f62354a0d8ae626834e1dd354f412faf6cecea991c5ca5178314f45&dataset=TMP_min&type=nc4&startdate=2025-05-01&enddate=2026-04-30&latitude=34.8141829&longitude=133.8951461",
+        "降水量": "400 Client Error: Bad Request for url: https://api.wagri2.net/wagri-mesh/weather/AMD?userid=u9d8975393&authKey=8d9ea7e36f62354a0d8ae626834e1dd354f412faf6cecea991c5ca5178314f45&dataset=APCP&type=nc4&startdate=2025-05-01&enddate=2026-04-30&latitude=34.8141829&longitude=133.8951461",
+        "日照時間": "400 Client Error: Bad Request for url: https://api.wagri2.net/wagri-mesh/weather/AMD?userid=u9d8975393&authKey=8d9ea7e36f62354a0d8ae626834e1dd354f412faf6cecea991c5ca5178314f45&dataset=SSD&type=nc4&startdate=2025-05-01&enddate=2026-04-30&latitude=34.8141829&longitude=133.8951461",
+        "全天日射量": "400 Client Error: Bad Request for url: https://api.wagri2.net/wagri-mesh/weather/AMD?userid=u9d8975393&authKey=8d9ea7e36f62354a0d8ae626834e1dd354f412faf6cecea991c5ca5178314f45&dataset=GSR&type=nc4&startdate=2025-05-01&enddate=2026-04-30&latitude=34.8141829&longitude=133.8951461"
+      }
     },
     {
       "name": "市本さん",
       "lat": 34.577144,
       "lon": 133.574186,
-      "data": {}
+      "data": {},
+      "errors": {
+        "平均気温": "400 Client Error: Bad Request for url: https://api.wagri2.net/wagri-mesh/weather/AMD?userid=u9d8975393&authKey=8d9ea7e36f62354a0d8ae626834e1dd354f412faf6cecea991c5ca5178314f45&dataset=TMP_mea&type=nc4&startdate=2025-05-01&enddate=2026-04-30&latitude=34.577144&longitude=133.574186",
+        "最高気温": "400 Client Error: Bad Request for url: https://api.wagri2.net/wagri-mesh/weather/AMD?userid=u9d8975393&authKey=8d9ea7e36f62354a0d8ae626834e1dd354f412faf6cecea991c5ca5178314f45&dataset=TMP_max&type=nc4&startdate=2025-05-01&enddate=2026-04-30&latitude=34.577144&longitude=133.574186",
+        "最低気温": "400 Client Error: Bad Request for url: https://api.wagri2.net/wagri-mesh/weather/AMD?userid=u9d8975393&authKey=8d9ea7e36f62354a0d8ae626834e1dd354f412faf6cecea991c5ca5178314f45&dataset=TMP_min&type=nc4&startdate=2025-05-01&enddate=2026-04-30&latitude=34.577144&longitude=133.574186",
+        "降水量": "400 Client Error: Bad Request for url: https://api.wagri2.net/wagri-mesh/weather/AMD?userid=u9d8975393&authKey=8d9ea7e36f62354a0d8ae626834e1dd354f412faf6cecea991c5ca5178314f45&dataset=APCP&type=nc4&startdate=2025-05-01&enddate=2026-04-30&latitude=34.577144&longitude=133.574186",
+        "日照時間": "400 Client Error: Bad Request for url: https://api.wagri2.net/wagri-mesh/weather/AMD?userid=u9d8975393&authKey=8d9ea7e36f62354a0d8ae626834e1dd354f412faf6cecea991c5ca5178314f45&dataset=SSD&type=nc4&startdate=2025-05-01&enddate=2026-04-30&latitude=34.577144&longitude=133.574186",
+        "全天日射量": "400 Client Error: Bad Request for url: https://api.wagri2.net/wagri-mesh/weather/AMD?userid=u9d8975393&authKey=8d9ea7e36f62354a0d8ae626834e1dd354f412faf6cecea991c5ca5178314f45&dataset=GSR&type=nc4&startdate=2025-05-01&enddate=2026-04-30&latitude=34.577144&longitude=133.574186"
+      }
     },
     {
       "name": "大森さん",
       "lat": 34.6969538,
       "lon": 134.1472758,
-      "data": {}
+      "data": {},
+      "errors": {
+        "平均気温": "400 Client Error: Bad Request for url: https://api.wagri2.net/wagri-mesh/weather/AMD?userid=u9d8975393&authKey=8d9ea7e36f62354a0d8ae626834e1dd354f412faf6cecea991c5ca5178314f45&dataset=TMP_mea&type=nc4&startdate=2025-05-01&enddate=2026-04-30&latitude=34.6969538&longitude=134.1472758",
+        "最高気温": "400 Client Error: Bad Request for url: https://api.wagri2.net/wagri-mesh/weather/AMD?userid=u9d8975393&authKey=8d9ea7e36f62354a0d8ae626834e1dd354f412faf6cecea991c5ca5178314f45&dataset=TMP_max&type=nc4&startdate=2025-05-01&enddate=2026-04-30&latitude=34.6969538&longitude=134.1472758",
+        "最低気温": "400 Client Error: Bad Request for url: https://api.wagri2.net/wagri-mesh/weather/AMD?userid=u9d8975393&authKey=8d9ea7e36f62354a0d8ae626834e1dd354f412faf6cecea991c5ca5178314f45&dataset=TMP_min&type=nc4&startdate=2025-05-01&enddate=2026-04-30&latitude=34.6969538&longitude=134.1472758",
+        "降水量": "400 Client Error: Bad Request for url: https://api.wagri2.net/wagri-mesh/weather/AMD?userid=u9d8975393&authKey=8d9ea7e36f62354a0d8ae626834e1dd354f412faf6cecea991c5ca5178314f45&dataset=APCP&type=nc4&startdate=2025-05-01&enddate=2026-04-30&latitude=34.6969538&longitude=134.1472758",
+        "日照時間": "400 Client Error: Bad Request for url: https://api.wagri2.net/wagri-mesh/weather/AMD?userid=u9d8975393&authKey=8d9ea7e36f62354a0d8ae626834e1dd354f412faf6cecea991c5ca5178314f45&dataset=SSD&type=nc4&startdate=2025-05-01&enddate=2026-04-30&latitude=34.6969538&longitude=134.1472758",
+        "全天日射量": "400 Client Error: Bad Request for url: https://api.wagri2.net/wagri-mesh/weather/AMD?userid=u9d8975393&authKey=8d9ea7e36f62354a0d8ae626834e1dd354f412faf6cecea991c5ca5178314f45&dataset=GSR&type=nc4&startdate=2025-05-01&enddate=2026-04-30&latitude=34.6969538&longitude=134.1472758"
+      }
     },
     {
       "name": "川上さん",
       "lat": 34.6707389,
       "lon": 133.5448899,
-      "data": {}
+      "data": {},
+      "errors": {
+        "平均気温": "400 Client Error: Bad Request for url: https://api.wagri2.net/wagri-mesh/weather/AMD?userid=u9d8975393&authKey=8d9ea7e36f62354a0d8ae626834e1dd354f412faf6cecea991c5ca5178314f45&dataset=TMP_mea&type=nc4&startdate=2025-05-01&enddate=2026-04-30&latitude=34.6707389&longitude=133.5448899",
+        "最高気温": "400 Client Error: Bad Request for url: https://api.wagri2.net/wagri-mesh/weather/AMD?userid=u9d8975393&authKey=8d9ea7e36f62354a0d8ae626834e1dd354f412faf6cecea991c5ca5178314f45&dataset=TMP_max&type=nc4&startdate=2025-05-01&enddate=2026-04-30&latitude=34.6707389&longitude=133.5448899",
+        "最低気温": "400 Client Error: Bad Request for url: https://api.wagri2.net/wagri-mesh/weather/AMD?userid=u9d8975393&authKey=8d9ea7e36f62354a0d8ae626834e1dd354f412faf6cecea991c5ca5178314f45&dataset=TMP_min&type=nc4&startdate=2025-05-01&enddate=2026-04-30&latitude=34.6707389&longitude=133.5448899",
+        "降水量": "400 Client Error: Bad Request for url: https://api.wagri2.net/wagri-mesh/weather/AMD?userid=u9d8975393&authKey=8d9ea7e36f62354a0d8ae626834e1dd354f412faf6cecea991c5ca5178314f45&dataset=APCP&type=nc4&startdate=2025-05-01&enddate=2026-04-30&latitude=34.6707389&longitude=133.5448899",
+        "日照時間": "400 Client Error: Bad Request for url: https://api.wagri2.net/wagri-mesh/weather/AMD?userid=u9d8975393&authKey=8d9ea7e36f62354a0d8ae626834e1dd354f412faf6cecea991c5ca5178314f45&dataset=SSD&type=nc4&startdate=2025-05-01&enddate=2026-04-30&latitude=34.6707389&longitude=133.5448899",
+        "全天日射量": "400 Client Error: Bad Request for url: https://api.wagri2.net/wagri-mesh/weather/AMD?userid=u9d8975393&authKey=8d9ea7e36f62354a0d8ae626834e1dd354f412faf6cecea991c5ca5178314f45&dataset=GSR&type=nc4&startdate=2025-05-01&enddate=2026-04-30&latitude=34.6707389&longitude=133.5448899"
+      }
     }
   ]
 }
