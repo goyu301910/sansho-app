@@ -21,7 +21,9 @@ jobs:
           python-version: '3.11'
 
       - name: 依存ライブラリをインストール
-        run: pip install requests playwright
+        run: |
+          sudo apt-get install -y libnetcdf-dev libhdf5-dev
+          pip install requests playwright netCDF4 numpy
 
       - name: Playwright ブラウザをインストール
         run: playwright install chromium --with-deps
@@ -31,6 +33,15 @@ jobs:
           FARMO_EMAIL:    ${{ secrets.FARMO_EMAIL }}
           FARMO_PASSWORD: ${{ secrets.FARMO_PASSWORD }}
         run: python scripts/fetch_farmo.py
+
+      - name: WAGRI から気象データを取得
+        continue-on-error: true
+        env:
+          WAGRI_CLIENT_ID:     ${{ secrets.WAGRI_CLIENT_ID }}
+          WAGRI_CLIENT_SECRET: ${{ secrets.WAGRI_CLIENT_SECRET }}
+          WAGRI_MESH_USERID:   ${{ secrets.WAGRI_MESH_USERID }}
+          WAGRI_MESH_PASSWORD: ${{ secrets.WAGRI_MESH_PASSWORD }}
+        run: python scripts/fetch_wagri.py
 
       - name: 変更をコミット・プッシュ
         run: |
