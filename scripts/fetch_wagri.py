@@ -68,9 +68,9 @@ def parse_time_units(units_str: str) -> datetime:
         return NC_EPOCH
 
 
-def fetch_nc4(token: str, auth_key: str, dataset: str,
-              lat: float, lon: float, start: str, end: str) -> dict:
-    """nc4(HDF5) 形式で取得し、{日付: 値} の辞書を返す"""
+def fetch_nc4_chunk(token: str, auth_key: str, dataset: str,
+                    lat: float, lon: float, start: str, end: str) -> dict:
+    """1年以内の範囲で nc4(HDF5) を取得し、{日付: 値} の辞書を返す"""
     r = requests.get(
         "https://api.wagri2.net/wagri-mesh/weather/AMD",
         headers={"X-Authorization": token},
@@ -96,7 +96,6 @@ def fetch_nc4(token: str, auth_key: str, dataset: str,
 
         epoch = parse_time_units(time_units)
 
-        # データ変数を探す
         data_key = None
         for k in f.keys():
             if k.lower() not in ("time", "lat", "lon", "latitude", "longitude"):
@@ -107,7 +106,6 @@ def fetch_nc4(token: str, auth_key: str, dataset: str,
 
         raw = f[data_key][:]
 
-    # (time, lat, lon) → (time,) に圧縮
     if raw.ndim > 1:
         raw = raw.reshape(len(time_vals), -1)[:, 0]
 
@@ -117,6 +115,26 @@ def fetch_nc4(token: str, auth_key: str, dataset: str,
         key = dt.strftime("%Y-%m-%d")
         masked = np.ma.is_masked(v) if np.ma.isMaskedArray(raw) else False
         result[key] = round(float(v), 2) if not masked else None
+
+    return result
+
+
+def fetch_nc4(token: str, auth_key: str, dataset: str,
+              lat: float, lon: float, start: str, end: str) -> dict:
+    """年をまたぐ場合は年ごとに分割してリクエストし結果をマージする"""
+    start_d = date.fromisoformat(start)
+    end_d   = date.fromisoformat(end)
+
+    result = {}
+    cur = start_d
+    while cur <= end_d:
+        year_end = date(cur.year, 12, 31)
+        chunk_end = min(year_end, end_d)
+        chunk = fetch_nc4_chunk(token, auth_key, dataset, lat, lon,
+                                cur.strftime("%Y-%m-%d"),
+                                chunk_end.strftime("%Y-%m-%d"))
+        result.update(chunk)
+        cur = date(chunk_end.year + 1, 1, 1)
 
     return result
 
