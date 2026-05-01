@@ -1133,13 +1133,22 @@ function renderWagriSelectors() {
       ${f.name}
     </label>`).join('');
 
-  // 指標ラジオボタン
+  // 指標カード
   const metrics = Object.keys(WAGRI_METRICS);
   document.getElementById('wagriMetricSelect').innerHTML = metrics.map((m, i) => `
-    <label class="radio-label">
-      <input type="radio" name="wagriMetric" value="${m}" ${i === 0 ? 'checked' : ''}>
-      ${m}
-    </label>`).join('');
+    <button class="metric-card ${i === 0 ? 'active' : ''}" data-metric="${m}"
+            style="--mc:${WAGRI_METRICS[m].color}">
+      <span class="metric-card-dot"></span>
+      <span class="metric-card-name">${m}</span>
+      <span class="metric-card-unit">${WAGRI_METRICS[m].unit}</span>
+    </button>`).join('');
+
+  document.getElementById('wagriMetricSelect').addEventListener('click', e => {
+    const btn = e.target.closest('.metric-card');
+    if (!btn) return;
+    document.querySelectorAll('.metric-card').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
 
   // デフォルト期間（データ期間の末尾30日）
   const period = wagriData.period;
@@ -1165,7 +1174,7 @@ function runWagriChart() {
   if (!wagriData) return;
 
   const fieldIdx = parseInt(document.querySelector('input[name="wagriField"]:checked')?.value ?? '0');
-  const metric   = document.querySelector('input[name="wagriMetric"]:checked')?.value;
+  const metric   = document.querySelector('.metric-card.active')?.dataset.metric;
   const startStr = document.getElementById('wagriStartDate').value;
   const endStr   = document.getElementById('wagriEndDate').value;
   const disp     = document.getElementById('weatherDisplay');

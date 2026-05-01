@@ -776,6 +776,70 @@ main {
 .diff-down { color: var(--blue); }
 .diff-same { color: var(--text-sub); }
 
+/* ===== WAGRI 指標カード ===== */
+#wagriMetricSelect {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.metric-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 8px;
+  border-radius: 12px;
+  border: 2px solid var(--border);
+  background: var(--card);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.metric-card.active {
+  border-color: var(--mc);
+  background: color-mix(in srgb, var(--mc) 10%, white);
+}
+.metric-card-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--mc);
+}
+.metric-card-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+}
+.metric-card-unit {
+  font-size: 10px;
+  color: var(--text-sub);
+}
+
+/* ===== WAGRI グラフ・サマリー ===== */
+.summary-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.summary-tile {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 14px;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+.summary-tile-label { font-size: 11px; color: var(--text-sub); margin-bottom: 4px; }
+.summary-tile-val   { font-size: 24px; font-weight: 700; }
+.summary-tile-unit  { font-size: 11px; color: var(--text-sub); }
+.chart-wrap {
+  background: var(--card);
+  border-radius: var(--radius);
+  padding: 14px 12px;
+  box-shadow: var(--shadow);
+  height: 300px;
+}
+
 /* ===== PIN認証オーバーレイ ===== */
 .pin-overlay {
   position: fixed;
