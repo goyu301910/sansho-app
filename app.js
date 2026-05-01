@@ -21,7 +21,6 @@ async function sha256(str) {
 async function initAuth() {
   const params = new URLSearchParams(window.location.search);
   const userKey = params.get('u');
-  if (!userKey) return; // 管理者モード（?u= なし）
 
   let config;
   try {
@@ -34,6 +33,20 @@ async function initAuth() {
     await new Promise(() => {});
   }
 
+  // 管理者モード（?u= なし）
+  if (!userKey) {
+    const adminConfig = config.admin;
+    if (adminConfig?.pinHash) {
+      if (sessionStorage.getItem('sansho_auth_admin') !== 'ok') {
+        await waitForPin(adminConfig);
+        sessionStorage.setItem('sansho_auth_admin', 'ok');
+        document.getElementById('pinOverlay').classList.remove('visible');
+      }
+    }
+    return;
+  }
+
+  // 農家モード
   const userConfig = config.users?.[userKey];
   if (!userConfig) {
     document.body.innerHTML =
