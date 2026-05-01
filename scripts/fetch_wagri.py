@@ -4,15 +4,15 @@ WAGRI 気象データ取得スクリプト（GitHub Actions 用）
 """
 import os
 import sys
+import io
 import json
-import tempfile
 import requests
 import numpy as np
-import netCDF4
+import h5py
 from datetime import datetime, timedelta, timezone, date
 from pathlib import Path
 
-DATA_DIR   = Path("data")
+DATA_DIR    = Path("data")
 FIELDS_FILE = DATA_DIR / "fields.json"
 OUTPUT_FILE = DATA_DIR / "wagri_weather.json"
 FETCH_DAYS  = 365  # 直近1年分
@@ -25,6 +25,9 @@ DATASETS = {
     "SSD":     "日照時間",
     "GSR":     "全天日射量",
 }
+
+# nc4 の時間単位: "days since 1900-1-1 00:00:0.0"
+NC_EPOCH = datetime(1900, 1, 1)
 
 
 def get_token() -> str:
@@ -56,9 +59,18 @@ def get_auth_key(token: str) -> str:
     return res.text.strip().strip('"')
 
 
+def parse_time_units(units_str: str) -> datetime:
+    """'days since YYYY-M-D ...' から基準日時を返す"""
+    try:
+        parts = units_str.strip().split()
+        return datetime.strptime(parts[2], "%Y-%m-%d")
+    except Exception:
+        return NC_EPOCH
+
+
 def fetch_nc4(token: str, auth_key: str, dataset: str,
               lat: float, lon: float, start: str, end: str) -> dict:
-    """nc4 形式で取得し、{日付: 値} の辞書を返す"""
+    """nc4(HDF5) 形式で取得し、{日付: 値} の辞書を返す"""
     r = requests.get(
         "https://api.wagri2.net/wagri-mesh/weather/AMD",
         headers={"X-Authorization": token},
@@ -76,39 +88,37 @@ def fetch_nc4(token: str, auth_key: str, dataset: str,
     )
     r.raise_for_status()
 
-    with tempfile.NamedTemporaryFile(suffix=".nc4", delete=False) as f:
-        f.write(r.content)
-        tmp_path = f.name
+    with h5py.File(io.BytesIO(r.content), "r") as f:
+        time_vals  = f["time"][:]
+        time_units = f["time"].attrs.get("units", b"days since 1900-1-1")
+        if isinstance(time_units, bytes):
+            time_units = time_units.decode()
 
-    try:
-        nc = netCDF4.Dataset(tmp_path)
+        epoch = parse_time_units(time_units)
 
-        time_var = nc.variables["time"]
-        times = netCDF4.num2date(time_var[:], time_var.units)
-
-        # データ変数（time/lat/lon 以外）を探す
-        data_var = None
-        for name in nc.variables:
-            if name.lower() not in ("time", "lat", "lon", "latitude", "longitude"):
-                data_var = nc.variables[name]
+        # データ変数を探す
+        data_key = None
+        for k in f.keys():
+            if k.lower() not in ("time", "lat", "lon", "latitude", "longitude"):
+                data_key = k
                 break
-        if data_var is None:
+        if data_key is None:
             raise ValueError("データ変数が見つかりません")
 
-        raw = data_var[:]
-        # (time, lat, lon) → (time,) に圧縮
-        if raw.ndim > 1:
-            raw = raw.reshape(len(times), -1)[:, 0]
+        raw = f[data_key][:]
 
-        result = {}
-        for t, v in zip(times, raw):
-            key = f"{t.year:04d}-{t.month:02d}-{t.day:02d}"
-            result[key] = round(float(v), 2) if not np.ma.is_masked(v) else None
+    # (time, lat, lon) → (time,) に圧縮
+    if raw.ndim > 1:
+        raw = raw.reshape(len(time_vals), -1)[:, 0]
 
-        nc.close()
-        return result
-    finally:
-        os.unlink(tmp_path)
+    result = {}
+    for days_offset, v in zip(time_vals, raw):
+        dt = epoch + timedelta(days=float(days_offset))
+        key = dt.strftime("%Y-%m-%d")
+        masked = np.ma.is_masked(v) if np.ma.isMaskedArray(raw) else False
+        result[key] = round(float(v), 2) if not masked else None
+
+    return result
 
 
 def main():
@@ -146,7 +156,7 @@ def main():
         name, lat, lon = field["name"], field["lat"], field["lon"]
         print(f"\n{name} ({lat}, {lon})")
 
-        field_entry = {"name": name, "lat": lat, "lon": lon, "data": {}}
+        field_entry = {"name": name, "lat": lat, "lon": lon, "data": {}, "errors": {}}
 
         for ds_key, ds_label in DATASETS.items():
             try:
@@ -154,6 +164,7 @@ def main():
                 field_entry["data"][ds_label] = daily
                 print(f"  ✓ {ds_label} ({len(daily)}日)")
             except Exception as e:
+                field_entry["errors"][ds_label] = str(e)
                 print(f"  ✗ {ds_label}: {e}")
 
         output["fields"].append(field_entry)
