@@ -16,6 +16,24 @@ const authState = {
   adminFields: [],
 };
 
+const SESSION_MS = 4 * 60 * 60 * 1000; // 4時間
+
+function setAuthSession(key) {
+  sessionStorage.setItem(`sansho_auth_${key}`, 'ok');
+  sessionStorage.setItem(`sansho_auth_${key}_exp`, Date.now() + SESSION_MS);
+}
+
+function isAuthValid(key) {
+  if (sessionStorage.getItem(`sansho_auth_${key}`) !== 'ok') return false;
+  const exp = parseInt(sessionStorage.getItem(`sansho_auth_${key}_exp`) ?? '0');
+  if (Date.now() > exp) {
+    sessionStorage.removeItem(`sansho_auth_${key}`);
+    sessionStorage.removeItem(`sansho_auth_${key}_exp`);
+    return false;
+  }
+  return true;
+}
+
 async function sha256(str) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -40,9 +58,9 @@ async function initAuth() {
   if (!userKey) {
     const adminConfig = config.admin;
     if (adminConfig?.pinHash) {
-      if (sessionStorage.getItem('sansho_auth_admin') !== 'ok') {
+      if (!isAuthValid('admin')) {
         await waitForPin(adminConfig);
-        sessionStorage.setItem('sansho_auth_admin', 'ok');
+        setAuthSession('admin');
         document.getElementById('pinOverlay').classList.remove('visible');
       }
     }
@@ -83,14 +101,14 @@ async function initAuth() {
   } catch (_) {}
 
   // セッション済みチェック
-  if (sessionStorage.getItem(`sansho_auth_${userKey}`) === 'ok') {
+  if (isAuthValid(userKey)) {
     applyUserUI();
     return;
   }
 
   // PIN入力を待つ
   await waitForPin(userConfig);
-  sessionStorage.setItem(`sansho_auth_${userKey}`, 'ok');
+  setAuthSession(userKey);
   document.getElementById('pinOverlay').classList.remove('visible');
   applyUserUI();
 }
@@ -1278,6 +1296,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 認証（ユーザーモードの場合はPIN入力を待つ）
   await initAuth();
+
+  // セッション有効期限の定期チェック（1分ごと）
+  const _authKey = authState.isAdmin ? 'admin' : authState.userKey;
+  if (_authKey) {
+    setInterval(() => {
+      if (!isAuthValid(_authKey)) location.reload();
+    }, 60_000);
+  }
 
   // ユーザーモードの場合、許可圃場以外をstateから除去
   if (!authState.isAdmin && authState.allowedFields) {
