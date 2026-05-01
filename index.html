@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>山椒 圃場モニター</title>
-  <link rel="stylesheet" href="style.css?v=7">
+  <link rel="stylesheet" href="style.css?v=8">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
@@ -215,27 +215,28 @@
   <!-- ===== 気象情報 ===== -->
   <section id="tab-weather" class="tab-content">
     <div class="card">
-      <span class="card-label">圃場を選択</span>
-      <div id="wagriFieldSelect"><p class="empty-msg">データ読込中...</p></div>
-    </div>
-    <div class="card">
-      <span class="card-label">指標</span>
-      <div id="wagriMetricSelect"></div>
-    </div>
-    <div class="card">
-      <span class="card-label">期間</span>
-      <div class="date-row">
-        <input type="date" id="wagriStartDate">
-        <span class="date-sep">〜</span>
-        <input type="date" id="wagriEndDate">
+      <span class="card-label">圃場の場所（緯度・経度）</span>
+      <div class="location-row">
+        <div class="location-input">
+          <label>緯度</label>
+          <input type="number" id="lat" value="34.23" step="0.01" min="-90" max="90">
+        </div>
+        <div class="location-input">
+          <label>経度</label>
+          <input type="number" id="lon" value="135.17" step="0.01" min="-180" max="180">
+        </div>
+      </div>
+      <p class="hint">※ Googleマップで圃場を長押し or 右クリックすると座標が確認できます</p>
+      <div class="weather-btn-row">
+        <button class="btn-secondary" id="fetchWeatherBtn">気象情報を取得</button>
+        <button class="btn-location" id="geoBtn">&#127757; 現在地を使用</button>
       </div>
     </div>
-    <button class="btn-primary" id="wagriShowBtn">グラフを表示</button>
     <div id="weatherDisplay"></div>
   </section>
 
 </main>
 
-<script src="app.js?v=7"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>

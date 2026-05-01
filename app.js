@@ -1093,171 +1093,105 @@ function renderAll() {
   renderPhenoList();
 }
 
-// ---- Weather (WAGRI) ------------------------------------
-let wagriData = null;
-
-const WAGRI_METRICS = {
-  "平均気温":   { unit: "°C",  color: "#43A047", label: "平均気温" },
-  "最高気温":   { unit: "°C",  color: "#e53935", label: "最高気温" },
-  "最低気温":   { unit: "°C",  color: "#1976D2", label: "最低気温" },
-  "降水量":     { unit: "mm",  color: "#0288D1", label: "降水量" },
-  "日照時間":   { unit: "h",   color: "#FF9800", label: "日照時間" },
-  "全天日射量": { unit: "MJ/m²", color: "#F9A825", label: "全天日射量" },
-};
-
-async function loadWagriData() {
+// ---- Weather --------------------------------------------
+function saveLocation(lat, lon) {
+  try { localStorage.setItem('sansho_location', JSON.stringify({ lat, lon })); } catch (_) {}
+}
+function loadLocation() {
   try {
-    const res = await fetch('./data/wagri_weather.json', { cache: 'no-cache' });
-    if (!res.ok) throw new Error('not found');
-    wagriData = await res.json();
-    renderWagriSelectors();
-  } catch {
-    document.getElementById('wagriFieldSelect').innerHTML =
-      '<p class="empty-msg">気象データがまだ用意されていません</p>';
-  }
-}
-
-function renderWagriSelectors() {
-  if (!wagriData) return;
-
-  // 圃場ラジオボタン（lat/lon がある圃場のみ）
-  const fields = wagriData.fields.filter(f => Object.keys(f.data || {}).length > 0);
-  if (!fields.length) {
-    document.getElementById('wagriFieldSelect').innerHTML =
-      '<p class="empty-msg">利用可能な圃場がありません</p>';
-    return;
-  }
-  document.getElementById('wagriFieldSelect').innerHTML = fields.map((f, i) => `
-    <label class="radio-label">
-      <input type="radio" name="wagriField" value="${i}" ${i === 0 ? 'checked' : ''}>
-      ${f.name}
-    </label>`).join('');
-
-  // 指標カード
-  const metrics = Object.keys(WAGRI_METRICS);
-  document.getElementById('wagriMetricSelect').innerHTML = metrics.map((m, i) => `
-    <button class="metric-card ${i === 0 ? 'active' : ''}" data-metric="${m}"
-            style="--mc:${WAGRI_METRICS[m].color}">
-      <span class="metric-card-dot"></span>
-      <span class="metric-card-name">${m}</span>
-      <span class="metric-card-unit">${WAGRI_METRICS[m].unit}</span>
-    </button>`).join('');
-
-  document.getElementById('wagriMetricSelect').addEventListener('click', e => {
-    const btn = e.target.closest('.metric-card');
-    if (!btn) return;
-    document.querySelectorAll('.metric-card').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-  });
-
-  // デフォルト期間（データ期間の末尾30日）
-  const period = wagriData.period;
-  if (period) {
-    const endDate = period.end;
-    const startDate = (() => {
-      const d = new Date(endDate + 'T00:00:00');
-      d.setDate(d.getDate() - 29);
-      return d.toISOString().slice(0, 10);
-    })();
-    document.getElementById('wagriStartDate').value = startDate;
-    document.getElementById('wagriEndDate').value = endDate;
-    document.getElementById('wagriStartDate').min = period.start;
-    document.getElementById('wagriStartDate').max = period.end;
-    document.getElementById('wagriEndDate').min = period.start;
-    document.getElementById('wagriEndDate').max = period.end;
-  }
-}
-
-let wagriChart = null;
-
-function runWagriChart() {
-  if (!wagriData) return;
-
-  const fieldIdx = parseInt(document.querySelector('input[name="wagriField"]:checked')?.value ?? '0');
-  const metric   = document.querySelector('.metric-card.active')?.dataset.metric;
-  const startStr = document.getElementById('wagriStartDate').value;
-  const endStr   = document.getElementById('wagriEndDate').value;
-  const disp     = document.getElementById('weatherDisplay');
-
-  if (!metric || !startStr || !endStr) { disp.innerHTML = ''; return; }
-
-  const fields = wagriData.fields.filter(f => Object.keys(f.data || {}).length > 0);
-  const field  = fields[fieldIdx];
-  if (!field) { disp.innerHTML = '<div class="error-card">圃場データがありません</div>'; return; }
-
-  const daily = field.data[metric] ?? {};
-  const meta  = WAGRI_METRICS[metric];
-
-  const points = Object.entries(daily)
-    .filter(([d]) => d >= startStr && d <= endStr && daily[d] != null)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([d, v]) => ({ x: d, y: v }));
-
-  if (!points.length) {
-    disp.innerHTML = '<div class="error-card">選択期間のデータがありません</div>'; return;
-  }
-
-  const vals = points.map(p => p.y);
-  const sum  = vals.reduce((a, b) => a + b, 0);
-  const avg  = sum / vals.length;
-  const max  = Math.max(...vals);
-  const min  = Math.min(...vals);
-
-  const isSum = metric === '降水量';
-  const tiles = isSum
-    ? [
-        { label: '合計',   val: sum.toFixed(1),  unit: meta.unit },
-        { label: '最大日', val: max.toFixed(1),  unit: meta.unit },
-        { label: '日数',   val: vals.filter(v => v > 0).length, unit: '日' },
-      ]
-    : [
-        { label: '平均',   val: avg.toFixed(1),  unit: meta.unit },
-        { label: '最大',   val: max.toFixed(1),  unit: meta.unit },
-        { label: '最小',   val: min.toFixed(1),  unit: meta.unit },
-      ];
-
-  disp.innerHTML = `
-    <div class="summary-tiles">${tiles.map(t => `
-      <div class="summary-tile">
-        <div class="summary-tile-label">${t.label}</div>
-        <div class="summary-tile-val">${t.val}</div>
-        <div class="summary-tile-unit">${t.unit}</div>
-      </div>`).join('')}
-    </div>
-    <div class="chart-wrap"><canvas id="wagriCanvas"></canvas></div>`;
-
-  if (wagriChart) { wagriChart.destroy(); wagriChart = null; }
-
-  wagriChart = new Chart(document.getElementById('wagriCanvas'), {
-    type: metric === '降水量' ? 'bar' : 'line',
-    data: {
-      datasets: [{
-        label: `${field.name} ${meta.label}`,
-        data: points,
-        borderColor: meta.color,
-        backgroundColor: metric === '降水量' ? meta.color + 'aa' : meta.color + '22',
-        borderWidth: 2,
-        pointRadius: points.length > 60 ? 0 : 3,
-        fill: metric !== '降水量',
-        tension: 0.3,
-      }]
-    },
-    options: {
-      responsive: true,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: {
-          type: 'time',
-          time: { unit: points.length > 90 ? 'month' : 'day', tooltipFormat: 'yyyy-MM-dd' },
-          ticks: { maxTicksLimit: 10 },
-        },
-        y: {
-          title: { display: true, text: meta.unit },
-          beginAtZero: metric === '降水量' || metric === '全天日射量',
-        }
-      }
+    const raw = localStorage.getItem('sansho_location');
+    if (raw) {
+      const { lat, lon } = JSON.parse(raw);
+      document.getElementById('lat').value = lat;
+      document.getElementById('lon').value = lon;
     }
-  });
+  } catch (_) {}
+}
+
+async function fetchWeather() {
+  const lat = parseFloat(document.getElementById('lat').value);
+  const lon = parseFloat(document.getElementById('lon').value);
+  const disp = document.getElementById('weatherDisplay');
+  if (isNaN(lat) || isNaN(lon)) {
+    disp.innerHTML = '<div class="error-card">緯度・経度を正しく入力してください</div>'; return;
+  }
+  saveLocation(lat, lon);
+  disp.innerHTML = '<div class="loading">取得中...</div>';
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}` +
+      `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,sunshine_duration` +
+      `&current=temperature_2m,relative_humidity_2m,precipitation,weather_code` +
+      `&timezone=Asia%2FTokyo&forecast_days=7`;
+    const data = await fetch(url).then(r => { if (!r.ok) throw new Error(); return r.json(); });
+    renderWeather(data);
+  } catch {
+    disp.innerHTML = '<div class="error-card">気象データの取得に失敗しました。<br>インターネット接続を確認してください。</div>';
+  }
+}
+
+const WX_LABEL = code =>
+  code === 0 ? '快晴' : code <= 3 ? '晴れ〜曇り' : code <= 49 ? '霧' :
+  code <= 69 ? '雨' : code <= 79 ? '雪' : '雷雨';
+
+function renderWeather(d) {
+  const c  = d.current;
+  const dl = d.daily;
+  const shine = s => s != null ? (s / 3600).toFixed(1) + 'h' : '-';
+
+  const tAll = dl.temperature_2m_max.concat(dl.temperature_2m_min).filter(v => v != null);
+  const tMin = Math.min(...tAll), tMax = Math.max(...tAll);
+  const barWidth = tMax > tMin ? t =>
+    Math.round(100 * (t - tMin) / (tMax - tMin)) : () => 50;
+
+  let html = `
+  <div class="weather-hero">
+    <div class="weather-hero-label">現在の気温</div>
+    <div class="weather-hero-temp">${c.temperature_2m?.toFixed(1) ?? '-'}°C</div>
+    <div class="weather-hero-sub">${WX_LABEL(c.weather_code ?? 0)} | 湿度 ${c.relative_humidity_2m ?? '-'}% | 降水 ${c.precipitation ?? 0}mm</div>
+  </div>
+  <div class="weather-grid">
+    <div class="weather-tile">
+      <div class="weather-tile-label">本日最高</div>
+      <div class="weather-tile-val" style="color:#e53935">${dl.temperature_2m_max[0]?.toFixed(1) ?? '-'}</div>
+      <div class="weather-tile-unit">°C</div>
+    </div>
+    <div class="weather-tile">
+      <div class="weather-tile-label">本日最低</div>
+      <div class="weather-tile-val" style="color:#1976d2">${dl.temperature_2m_min[0]?.toFixed(1) ?? '-'}</div>
+      <div class="weather-tile-unit">°C</div>
+    </div>
+    <div class="weather-tile">
+      <div class="weather-tile-label">降水量</div>
+      <div class="weather-tile-val" style="color:#1976d2">${dl.precipitation_sum[0]?.toFixed(1) ?? '-'}</div>
+      <div class="weather-tile-unit">mm</div>
+    </div>
+    <div class="weather-tile">
+      <div class="weather-tile-label">日照時間</div>
+      <div class="weather-tile-val" style="color:#FF9800">${shine(dl.sunshine_duration[0])}</div>
+      <div class="weather-tile-unit">h</div>
+    </div>
+  </div>
+  <div class="forecast-card">
+    <h3>7日間予報</h3>`;
+
+  for (let i = 0; i < 7; i++) {
+    const dt   = new Date(dl.time[i]);
+    const day  = i === 0 ? '今日' : i === 1 ? '明日' : `${dt.getMonth()+1}/${dt.getDate()}`;
+    const tmax = dl.temperature_2m_max[i]?.toFixed(1) ?? '-';
+    const tmin = dl.temperature_2m_min[i]?.toFixed(1) ?? '-';
+    const rain = dl.precipitation_sum[i]?.toFixed(1) ?? '-';
+    const w1 = barWidth(parseFloat(tmin) || tMin);
+    const w2 = barWidth(parseFloat(tmax) || tMax);
+    html += `<div class="forecast-row">
+      <span class="forecast-date">${day}</span>
+      <span class="forecast-min">${tmin}°</span>
+      <div class="forecast-bar"><div class="forecast-bar-inner" style="margin-left:${w1}%;width:${w2-w1}%"></div></div>
+      <span class="forecast-max">${tmax}°</span>
+      <span class="forecast-rain">&#127783; ${rain}mm</span>
+    </div>`;
+  }
+  html += '</div>';
+  document.getElementById('weatherDisplay').innerHTML = html;
 }
 
 // ---- Auto Fetch -----------------------------------------
@@ -1354,7 +1288,40 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 物候記録
   document.getElementById('phenoSaveBtn').addEventListener('click', handlePhenoSave);
 
-  // 気象情報 (WAGRI)
-  document.getElementById('wagriShowBtn').addEventListener('click', runWagriChart);
-  loadWagriData();
+  // 気象情報
+  loadLocation();
+  document.getElementById('fetchWeatherBtn').addEventListener('click', fetchWeather);
+  document.getElementById('geoBtn').addEventListener('click', () => {
+    if (!navigator.geolocation) {
+      alert('このブラウザは位置情報に対応していません'); return;
+    }
+    const btn = document.getElementById('geoBtn');
+    btn.textContent = '取得中...';
+    btn.disabled = true;
+    const disp = document.getElementById('weatherDisplay');
+    disp.innerHTML = '<div class="loading">📍 位置情報を取得中...<br><small style="color:#888">ブラウザから許可を求めるダイアログが表示されたら「許可」を選択してください</small></div>';
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        const lat = Math.round(pos.coords.latitude  * 10000) / 10000;
+        const lon = Math.round(pos.coords.longitude * 10000) / 10000;
+        document.getElementById('lat').value = lat;
+        document.getElementById('lon').value = lon;
+        saveLocation(lat, lon);
+        btn.textContent = '🌍 現在地を使用';
+        btn.disabled = false;
+        fetchWeather();
+      },
+      err => {
+        const msg = {
+          1: '位置情報の許可が拒否されています。\nブラウザの設定 → サイトの設定 → 位置情報 を「許可」にしてください。',
+          2: '位置情報を取得できませんでした（電波・GPS不良）。',
+          3: '位置情報の取得がタイムアウトしました。再度お試しください。',
+        }[err.code] ?? `エラー: ${err.message}`;
+        document.getElementById('weatherDisplay').innerHTML = `<div class="error-card">${msg}</div>`;
+        btn.textContent = '🌍 現在地を使用';
+        btn.disabled = false;
+      },
+      { timeout: 15000, enableHighAccuracy: false }
+    );
+  });
 });
