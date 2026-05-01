@@ -11,6 +11,8 @@ const authState = {
   userKey: null,
   userName: null,
   allowedFields: null, // null = 全圃場（管理者）
+  fieldLat: null,
+  fieldLon: null,
 };
 
 async function sha256(str) {
@@ -58,6 +60,18 @@ async function initAuth() {
   authState.userKey = userKey;
   authState.userName = userConfig.name;
   authState.allowedFields = userConfig.fields;
+
+  // 圃場座標を取得
+  try {
+    const fieldsRes = await fetch('./data/fields.json', { cache: 'no-cache' });
+    if (fieldsRes.ok) {
+      const fieldsJson = await fieldsRes.json();
+      const match = fieldsJson.find(f =>
+        userConfig.fields?.includes(f.name) && f.lat != null && f.lon != null
+      );
+      if (match) { authState.fieldLat = match.lat; authState.fieldLon = match.lon; }
+    }
+  } catch (_) {}
 
   // セッション済みチェック
   if (sessionStorage.getItem(`sansho_auth_${userKey}`) === 'ok') {
@@ -1289,7 +1303,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('phenoSaveBtn').addEventListener('click', handlePhenoSave);
 
   // 気象情報
-  loadLocation();
+  if (!authState.isAdmin && authState.fieldLat != null) {
+    // 農家モード: 圃場座標で自動取得、入力フォームを非表示
+    document.querySelector('#tab-weather .card').style.display = 'none';
+    document.getElementById('lat').value = authState.fieldLat;
+    document.getElementById('lon').value = authState.fieldLon;
+    fetchWeather();
+  } else {
+    loadLocation();
+  }
   document.getElementById('fetchWeatherBtn').addEventListener('click', fetchWeather);
   document.getElementById('geoBtn').addEventListener('click', () => {
     if (!navigator.geolocation) {
