@@ -1235,6 +1235,189 @@ function renderWeather(d) {
   document.getElementById('weatherDisplay').innerHTML = html;
 }
 
+// ---- Soil Analysis --------------------------------------
+const SOIL_PARAMS = [
+  { key: '窒素',             unit: 'mg/100g', chart: true  },
+  { key: '硝酸態窒素',       unit: 'mg/100g', chart: false },
+  { key: 'アンモニア態窒素', unit: 'mg/100g', chart: false },
+  { key: 'りん酸',           unit: 'mg/100g', chart: true  },
+  { key: '加里',             unit: 'mg/100g', chart: true  },
+  { key: '石灰',             unit: 'mg/100g', chart: true  },
+  { key: '苦土',             unit: 'mg/100g', chart: true  },
+  { key: '石灰/苦土比',      unit: 'meq/meq', chart: true  },
+  { key: '苦土/加里比',      unit: 'meq/meq', chart: true  },
+];
+const SOIL_CHART_PARAMS = SOIL_PARAMS.filter(p => p.chart);
+const SOIL_COLORS = [
+  '#e53935','#1976D2','#43A047','#F57C00','#8E24AA',
+  '#00897B','#3949AB','#E91E63','#6D4C41','#0097A7',
+];
+
+let soilEntries = [];
+let soilChart = null;
+
+function loadSoilData() {
+  try {
+    const raw = localStorage.getItem('sansho_soil');
+    if (raw) soilEntries = JSON.parse(raw);
+  } catch (_) {}
+}
+function saveSoilData() {
+  try { localStorage.setItem('sansho_soil', JSON.stringify(soilEntries)); } catch (_) {}
+}
+
+function initSoilForm() {
+  const last = soilEntries[soilEntries.length - 1]?.values ?? {};
+  document.getElementById('soilParamsBody').innerHTML = SOIL_PARAMS.map(p => {
+    const prev = last[p.key] ?? {};
+    const refCols = p.chart
+      ? `<td><input class="soil-inp soil-ref-min" type="number" step="any"
+              data-key="${p.key}" value="${prev.refMin ?? ''}" placeholder="最小"></td>
+         <td><input class="soil-inp soil-ref-max" type="number" step="any"
+              data-key="${p.key}" value="${prev.refMax ?? ''}" placeholder="最大"></td>`
+      : `<td colspan="2" class="soil-no-ref">—</td>`;
+    return `<tr>
+      <td class="soil-param-name">${p.key}<small class="soil-unit"> ${p.unit}</small></td>
+      <td><input class="soil-inp soil-val" type="number" step="any"
+              data-key="${p.key}" placeholder="測定値"></td>
+      ${refCols}
+    </tr>`;
+  }).join('');
+  const d = new Date();
+  document.getElementById('soilDate').value = d.toISOString().slice(0, 10);
+}
+
+function handleSoilSave() {
+  const date  = document.getElementById('soilDate').value;
+  const field = document.getElementById('soilField').value.trim();
+  if (!date || !field) { alert('測定日と圃場名を入力してください'); return; }
+
+  const values = {};
+  let hasVal = false;
+  SOIL_PARAMS.forEach(p => {
+    const val    = parseFloat(document.querySelector(`.soil-val[data-key="${p.key}"]`)?.value);
+    const refMin = parseFloat(document.querySelector(`.soil-ref-min[data-key="${p.key}"]`)?.value);
+    const refMax = parseFloat(document.querySelector(`.soil-ref-max[data-key="${p.key}"]`)?.value);
+    if (!isNaN(val)) hasVal = true;
+    values[p.key] = {
+      val:    isNaN(val)    ? null : val,
+      refMin: isNaN(refMin) ? null : refMin,
+      refMax: isNaN(refMax) ? null : refMax,
+    };
+  });
+  if (!hasVal) { alert('少なくとも1つの測定値を入力してください'); return; }
+
+  soilEntries.push({ id: Date.now(), date, field, values });
+  soilEntries.sort((a, b) => a.date.localeCompare(b.date));
+  saveSoilData();
+  initSoilForm();
+  renderSoilEntries();
+  renderSoilChart();
+}
+
+function deleteSoilEntry(id) {
+  soilEntries = soilEntries.filter(e => e.id !== id);
+  saveSoilData();
+  renderSoilEntries();
+  renderSoilChart();
+}
+
+function renderSoilEntries() {
+  const el = document.getElementById('soilEntryList');
+  if (!soilEntries.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="soil-chips">${soilEntries.map((e, i) => `
+    <div class="soil-chip" style="border-color:${SOIL_COLORS[i % SOIL_COLORS.length]}">
+      <span class="soil-chip-dot" style="background:${SOIL_COLORS[i % SOIL_COLORS.length]}"></span>
+      <span class="soil-chip-date">${e.date}</span>
+      <span class="soil-chip-field">${e.field}</span>
+      <button class="soil-chip-del" data-id="${e.id}">✕</button>
+    </div>`).join('')}
+  </div>`;
+  el.querySelectorAll('.soil-chip-del').forEach(btn =>
+    btn.addEventListener('click', () => deleteSoilEntry(parseInt(btn.dataset.id)))
+  );
+}
+
+function renderSoilChart() {
+  const card = document.getElementById('soilChartCard');
+  if (!soilEntries.length) { card.style.display = 'none'; return; }
+  card.style.display = '';
+  if (soilChart) { soilChart.destroy(); soilChart = null; }
+
+  // Reference circle dataset
+  const refDataset = {
+    label: '基準値中央',
+    data: SOIL_CHART_PARAMS.map(() => 1),
+    borderColor: 'rgba(0,0,0,0.25)',
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderWidth: 1.5,
+    borderDash: [5, 4],
+    pointRadius: 0,
+    order: 99,
+  };
+
+  const datasets = soilEntries.map((entry, i) => {
+    const color = SOIL_COLORS[i % SOIL_COLORS.length];
+    const data = SOIL_CHART_PARAMS.map(p => {
+      const v = entry.values[p.key];
+      if (!v || v.val === null || v.refMin === null || v.refMax === null) return null;
+      const mid = (v.refMin + v.refMax) / 2;
+      return mid > 0 ? Math.min(+(v.val / mid).toFixed(3), 4) : null;
+    });
+    return {
+      label: `${entry.date}　${entry.field}`,
+      data,
+      borderColor: color,
+      backgroundColor: color + '30',
+      borderWidth: 2,
+      pointBackgroundColor: color,
+      pointRadius: 4,
+      pointHoverRadius: 6,
+    };
+  });
+
+  soilChart = new Chart(document.getElementById('soilChart'), {
+    type: 'radar',
+    data: {
+      labels: SOIL_CHART_PARAMS.map(p => p.key),
+      datasets: [...datasets, refDataset],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        r: {
+          min: 0, max: 3,
+          ticks: {
+            stepSize: 0.5,
+            callback: v => v === 1 ? '基準' : v === 0 ? '' : `${v}x`,
+            font: { size: 10 },
+            backdropColor: 'transparent',
+          },
+          pointLabels: { font: { size: 12, weight: '700' } },
+          grid: { color: 'rgba(0,0,0,0.08)' },
+        },
+      },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 14, font: { size: 12 }, padding: 12 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              if (ctx.datasetIndex >= soilEntries.length) return ctx.dataset.label;
+              const entry = soilEntries[ctx.datasetIndex];
+              const p = SOIL_CHART_PARAMS[ctx.dataIndex];
+              const v = entry?.values[p.key];
+              if (!v || v.val === null) return `${p.key}: データなし`;
+              const score = ctx.parsed.r != null ? `${ctx.parsed.r.toFixed(2)}x` : '-';
+              return `${p.key}: ${v.val} ${p.unit}（基準比 ${score}）`;
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
 // ---- Auto Fetch -----------------------------------------
 async function loadAutoData() {
   const statusEl = document.getElementById('autoFetchStatus');
@@ -1336,6 +1519,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 物候記録
   document.getElementById('phenoSaveBtn').addEventListener('click', handlePhenoSave);
+
+  // 土壌分析
+  loadSoilData();
+  initSoilForm();
+  renderSoilEntries();
+  renderSoilChart();
+  document.getElementById('soilSaveBtn').addEventListener('click', handleSoilSave);
 
   // 気象情報
   if (!authState.isAdmin && authState.fieldLat != null) {

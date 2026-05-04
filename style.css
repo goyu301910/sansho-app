@@ -776,6 +776,86 @@ main {
 .diff-down { color: var(--blue); }
 .diff-same { color: var(--text-sub); }
 
+/* ===== 土壌分析 ===== */
+.soil-meta-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.soil-meta-item { display: flex; flex-direction: column; gap: 4px; }
+.soil-meta-label { font-size: 11px; color: var(--text-sub); font-weight: 600; }
+.soil-meta-item input {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+  background: var(--bg);
+  width: 100%;
+}
+.soil-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.soil-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 300px;
+}
+.soil-table th {
+  background: var(--green-pale);
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 8px;
+  text-align: center;
+  border-bottom: 2px solid var(--green-light);
+}
+.soil-table td {
+  padding: 5px 4px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.soil-param-name { font-weight: 600; white-space: nowrap; padding-right: 8px !important; }
+.soil-unit { font-size: 10px; color: var(--text-sub); font-weight: 400; }
+.soil-inp {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 6px;
+  font-size: 13px;
+  background: var(--bg);
+  min-width: 60px;
+}
+.soil-inp:focus { outline: none; border-color: var(--green); }
+.soil-no-ref { text-align: center; color: var(--text-sub); font-size: 12px; }
+
+.soil-chips { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+.soil-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--card);
+  border: 2px solid;
+  border-radius: 10px;
+  padding: 8px 12px;
+  box-shadow: var(--shadow);
+}
+.soil-chip-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.soil-chip-date { font-size: 13px; font-weight: 700; }
+.soil-chip-field { font-size: 13px; color: var(--text-sub); flex: 1; }
+.soil-chip-del {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--text-sub);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+.soil-chip-del:hover { background: #fee; color: var(--red); }
+
+.soil-chart-wrap { position: relative; height: 360px; }
+
 /* ===== 気象 圃場選択 ===== */
 .weather-field-btns {
   display: flex;
