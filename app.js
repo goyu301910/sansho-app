@@ -1533,6 +1533,12 @@ async function parseSoilPDF(file) {
     'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
   const arrayBuffer = await file.arrayBuffer();
+
+  // ファイル内容のハッシュ（重複検出用）
+  const hashBuf = await crypto.subtle.digest('SHA-256', arrayBuffer);
+  const hash = Array.from(new Uint8Array(hashBuf))
+    .map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 24);
+
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
   const tokens = [];
@@ -1548,7 +1554,7 @@ async function parseSoilPDF(file) {
       });
     tokens.push(...items.map(i => i.str.trim()));
   }
-  return extractSoilFromTokens(tokens);
+  return { ...extractSoilFromTokens(tokens), hash };
 }
 
 function extractSoilFromTokens(tokens) {
@@ -1624,17 +1630,17 @@ function initSoilAdminForm() {
       <span class="card-label">分析データを追加</span>
 
       <div class="soil-pdf-section">
-        <label class="soil-meta-label">PDFから読み込む</label>
+        <label class="soil-meta-label">PDFから一括読み込み</label>
         <div class="soil-pdf-row">
           <label class="btn-secondary soil-pdf-label" for="soilPdfInput">
-            📄 PDFを選択
+            📄 PDFを選択（複数可）
           </label>
-          <input type="file" id="soilPdfInput" accept=".pdf" style="display:none">
+          <input type="file" id="soilPdfInput" accept=".pdf" multiple style="display:none">
           <span id="soilPdfStatus" class="soil-pdf-status"></span>
         </div>
       </div>
 
-      <div class="section-divider" style="margin:14px 0 12px">確認・修正</div>
+      <div class="section-divider" style="margin:14px 0 12px">手動で追加・修正</div>
 
       <div class="soil-meta-row" style="margin-bottom:10px">
         <div class="soil-meta-item">
@@ -1674,41 +1680,66 @@ function initSoilAdminForm() {
   document.getElementById('soilAddUser').addEventListener('change', updateFieldList);
   updateFieldList(); // 初期値
 
-  // PDF アップロード → 自動入力
+  // PDF 一括アップロード → 自動追加
   document.getElementById('soilPdfInput').addEventListener('change', async e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const statusEl = document.getElementById('soilPdfStatus');
-    statusEl.textContent = '解析中...';
-    statusEl.className = 'soil-pdf-status';
-    try {
-      const extracted = await parseSoilPDF(file);
-
-      // 日付
-      if (extracted.date) document.getElementById('soilAddDate').value = extracted.date;
-
-      // 測定値・基準値
-      let filled = 0;
-      SOIL_CHART_PARAMS.forEach((p, idx) => {
-        const v = extracted.values[p.key];
-        if (!v) return;
-        const vEl = document.querySelector(`.soil-add-val[data-idx="${idx}"]`);
-        const nEl = document.querySelector(`.soil-add-min[data-idx="${idx}"]`);
-        const xEl = document.querySelector(`.soil-add-max[data-idx="${idx}"]`);
-        if (v.val    != null && vEl) { vEl.value = v.val;    filled++; }
-        if (v.refMin != null && nEl)   nEl.value = v.refMin;
-        if (v.refMax != null && xEl)   xEl.value = v.refMax;
-      });
-
-      statusEl.textContent = filled > 0
-        ? `✓ ${filled}項目を自動入力しました。内容を確認・修正してから「追加」してください。`
-        : '数値を自動抽出できませんでした。手動で入力してください。';
-      statusEl.className = `soil-pdf-status ${filled > 0 ? 'ok' : 'err'}`;
-    } catch (err) {
-      statusEl.textContent = `✗ PDF解析エラー: ${err.message}`;
-      statusEl.className = 'soil-pdf-status err';
-    }
+    const files = [...e.target.files];
+    if (!files.length) return;
     e.target.value = '';
+
+    const statusEl = document.getElementById('soilPdfStatus');
+    statusEl.className = 'soil-pdf-status';
+
+    const localEntries   = loadLocalSoilEntries();
+    const existingHashes = new Set(localEntries.map(x => x.pdfHash).filter(Boolean));
+
+    let added = 0, dupes = 0, errors = 0;
+    const errNames = [];
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      statusEl.textContent = `解析中 ${i + 1} / ${files.length}… ${file.name}`;
+      try {
+        const extracted = await parseSoilPDF(file);
+
+        // 重複チェック（同じファイル内容は 1 件のみ登録）
+        if (existingHashes.has(extracted.hash)) { dupes++; continue; }
+
+        const date  = extracted.date || document.getElementById('soilAddDate').value;
+        const user  = document.getElementById('soilAddUser').value;
+        const field = document.getElementById('soilAddField').value.trim();
+
+        if (!date || !field) { errors++; errNames.push(file.name); continue; }
+
+        const values = {};
+        SOIL_CHART_PARAMS.forEach(p => {
+          const v = extracted.values[p.key];
+          values[p.key] = v ?? { val: null, refMin: null, refMax: null };
+        });
+
+        localEntries.push({
+          id: `local-${Date.now()}-${i}`,
+          date, field, user,
+          isLocal: true,
+          pdfHash: extracted.hash,
+          values,
+        });
+        existingHashes.add(extracted.hash);
+        added++;
+      } catch (_) {
+        errors++;
+        errNames.push(file.name);
+      }
+    }
+
+    saveLocalSoilEntries(localEntries);
+    renderSoilUI();
+
+    // 結果サマリー
+    let msg = `${files.length}件中 ${added}件追加`;
+    if (dupes)  msg += `、${dupes}件は重複スキップ`;
+    if (errors) msg += `、${errors}件はエラー（日付・圃場未設定の可能性）`;
+    statusEl.textContent = msg;
+    statusEl.className = `soil-pdf-status ${added > 0 ? 'ok' : dupes > 0 ? '' : 'err'}`;
   });
 
   document.getElementById('soilAddBtn').addEventListener('click', handleSoilAdd);
