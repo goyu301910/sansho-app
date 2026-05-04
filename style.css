@@ -854,6 +854,7 @@ main {
 }
 .soil-chip-del:hover { background: #fee; color: var(--red); }
 
+.soil-chip-tag { margin-left: auto; font-size: 14px; opacity: 0.6; }
 .soil-chart-wrap { position: relative; height: 360px; }
 
 /* ===== 気象 圃場選択 ===== */

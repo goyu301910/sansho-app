@@ -1253,17 +1253,29 @@ const SOIL_COLORS = [
   '#00897B','#3949AB','#E91E63','#6D4C41','#0097A7',
 ];
 
-let soilEntries = [];
+let soilEntries = [];        // localStorage（手入力）
+let remoteSoilEntries = [];  // soil_analysis.json（読み取り専用）
 let soilChart = null;
 
-function loadSoilData() {
+async function loadSoilData() {
   try {
     const raw = localStorage.getItem('sansho_soil');
     if (raw) soilEntries = JSON.parse(raw);
   } catch (_) {}
+  try {
+    const res = await fetch('./data/soil_analysis.json', { cache: 'no-cache' });
+    if (res.ok) remoteSoilEntries = (await res.json()).entries ?? [];
+  } catch (_) {}
 }
 function saveSoilData() {
   try { localStorage.setItem('sansho_soil', JSON.stringify(soilEntries)); } catch (_) {}
+}
+
+function getVisibleSoilEntries() {
+  const remote = remoteSoilEntries
+    .filter(e => authState.isAdmin || e.user === authState.userKey)
+    .map(e => ({ ...e, _remote: true }));
+  return [...remote, ...soilEntries].sort((a, b) => a.date.localeCompare(b.date));
 }
 
 function initSoilForm() {
@@ -1324,13 +1336,15 @@ function deleteSoilEntry(id) {
 
 function renderSoilEntries() {
   const el = document.getElementById('soilEntryList');
-  if (!soilEntries.length) { el.innerHTML = ''; return; }
-  el.innerHTML = `<div class="soil-chips">${soilEntries.map((e, i) => `
+  const visible = getVisibleSoilEntries();
+  if (!visible.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="soil-chips">${visible.map((e, i) => `
     <div class="soil-chip" style="border-color:${SOIL_COLORS[i % SOIL_COLORS.length]}">
       <span class="soil-chip-dot" style="background:${SOIL_COLORS[i % SOIL_COLORS.length]}"></span>
       <span class="soil-chip-date">${e.date}</span>
       <span class="soil-chip-field">${e.field}</span>
-      <button class="soil-chip-del" data-id="${e.id}">✕</button>
+      ${e._remote ? '<span class="soil-chip-tag">📋</span>' :
+        `<button class="soil-chip-del" data-id="${e.id}">✕</button>`}
     </div>`).join('')}
   </div>`;
   el.querySelectorAll('.soil-chip-del').forEach(btn =>
@@ -1340,11 +1354,11 @@ function renderSoilEntries() {
 
 function renderSoilChart() {
   const card = document.getElementById('soilChartCard');
-  if (!soilEntries.length) { card.style.display = 'none'; return; }
+  const visible = getVisibleSoilEntries();
+  if (!visible.length) { card.style.display = 'none'; return; }
   card.style.display = '';
   if (soilChart) { soilChart.destroy(); soilChart = null; }
 
-  // Reference circle dataset
   const refDataset = {
     label: '基準値中央',
     data: SOIL_CHART_PARAMS.map(() => 1),
@@ -1356,7 +1370,7 @@ function renderSoilChart() {
     order: 99,
   };
 
-  const datasets = soilEntries.map((entry, i) => {
+  const datasets = visible.map((entry, i) => {
     const color = SOIL_COLORS[i % SOIL_COLORS.length];
     const data = SOIL_CHART_PARAMS.map(p => {
       const v = entry.values[p.key];
@@ -1403,8 +1417,9 @@ function renderSoilChart() {
         tooltip: {
           callbacks: {
             label: ctx => {
-              if (ctx.datasetIndex >= soilEntries.length) return ctx.dataset.label;
-              const entry = soilEntries[ctx.datasetIndex];
+              const _vis = getVisibleSoilEntries();
+              if (ctx.datasetIndex >= _vis.length) return ctx.dataset.label;
+              const entry = _vis[ctx.datasetIndex];
               const p = SOIL_CHART_PARAMS[ctx.dataIndex];
               const v = entry?.values[p.key];
               if (!v || v.val === null) return `${p.key}: データなし`;
@@ -1521,7 +1536,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('phenoSaveBtn').addEventListener('click', handlePhenoSave);
 
   // 土壌分析
-  loadSoilData();
+  await loadSoilData();
   initSoilForm();
   renderSoilEntries();
   renderSoilChart();

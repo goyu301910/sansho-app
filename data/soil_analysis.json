@@ -1,0 +1,38 @@
+{
+  "entries": [
+    {
+      "id": "omori-20240707",
+      "date": "2024-07-07",
+      "field": "大森さん（山椒圃場2）",
+      "user": "omori",
+      "values": {
+        "窒素":             { "val": 110,  "refMin": 14.0,  "refMax": 21.0  },
+        "硝酸態窒素":       { "val": 50,   "refMin": null,  "refMax": null  },
+        "アンモニア態窒素": { "val": 60,   "refMin": null,  "refMax": null  },
+        "りん酸":           { "val": 1,    "refMin": 14.0,  "refMax": 21.0  },
+        "加里":             { "val": 200,  "refMin": 12.0,  "refMax": 18.0  },
+        "石灰":             { "val": 1,    "refMin": 75.0,  "refMax": 128.0 },
+        "苦土":             { "val": 140,  "refMin": 11.5,  "refMax": 23.0  },
+        "石灰/苦土比":      { "val": 0.0,  "refMin": 3.0,   "refMax": 6.5   },
+        "苦土/加里比":      { "val": 23.4, "refMin": 1.5,   "refMax": 4.5   }
+      }
+    },
+    {
+      "id": "omori-20250126",
+      "date": "2025-01-26",
+      "field": "大森さん（山椒圃場2）",
+      "user": "omori",
+      "values": {
+        "窒素":             { "val": 41.4,  "refMin": 22.9,  "refMax": 34.3  },
+        "硝酸態窒素":       { "val": 22.1,  "refMin": null,  "refMax": null  },
+        "アンモニア態窒素": { "val": 19.3,  "refMin": null,  "refMax": null  },
+        "りん酸":           { "val": 202.9, "refMin": 21.2,  "refMax": 31.8  },
+        "加里":             { "val": 156.7, "refMin": 18.6,  "refMax": 28.0  },
+        "石灰":             { "val": 67.8,  "refMin": 222.0, "refMax": 267.0 },
+        "苦土":             { "val": 140,   "refMin": 23.8,  "refMax": 39.7  },
+        "石灰/苦土比":      { "val": 0.2,   "refMin": 4.0,   "refMax": 8.0   },
+        "苦土/加里比":      { "val": 4.3,   "refMin": 2.0,   "refMax": 5.0   }
+      }
+    }
+  ]
+}
