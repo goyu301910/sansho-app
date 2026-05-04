@@ -857,6 +857,26 @@ main {
 .soil-chip-tag { margin-left: auto; font-size: 14px; opacity: 0.6; }
 .soil-chart-wrap { position: relative; height: 360px; }
 
+.soil-date-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s;
+  margin-bottom: 4px;
+}
+.soil-date-row:hover { background: var(--green-pale); }
+.soil-date-row input[type="radio"] { display: none; }
+.soil-date-row input[type="radio"]:checked + .soil-date-dot { box-shadow: 0 0 0 2px #fff, 0 0 0 4px currentColor; }
+.soil-date-dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.soil-date-text { font-size: 14px; font-weight: 600; }
+
 /* ===== 気象 圃場選択 ===== */
 .weather-field-btns {
   display: flex;

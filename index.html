@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>山椒 圃場モニター</title>
-  <link rel="stylesheet" href="style.css?v=12">
+  <link rel="stylesheet" href="style.css?v=14">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
@@ -241,33 +241,14 @@
 
   <!-- ===== 土壌分析 ===== -->
   <section id="tab-soil" class="tab-content">
-    <div class="card">
-      <span class="card-label">分析データを追加</span>
-      <div class="soil-meta-row">
-        <div class="soil-meta-item">
-          <label class="soil-meta-label">測定日</label>
-          <input type="date" id="soilDate">
-        </div>
-        <div class="soil-meta-item">
-          <label class="soil-meta-label">圃場名</label>
-          <input type="text" id="soilField" placeholder="例: 大森-山椒圃場2">
-        </div>
-      </div>
-      <div class="soil-table-wrap">
-        <table class="soil-table">
-          <thead>
-            <tr>
-              <th>成分</th>
-              <th>測定値</th>
-              <th colspan="2">基準値（最小〜最大）</th>
-            </tr>
-          </thead>
-          <tbody id="soilParamsBody"></tbody>
-        </table>
-      </div>
-      <button class="btn-primary" id="soilSaveBtn" style="margin-top:12px">追加</button>
+    <div id="soilFieldCard" class="card" style="display:none">
+      <span class="card-label">圃場を選択</span>
+      <div id="soilFieldBtns" class="weather-field-btns"></div>
     </div>
-    <div id="soilEntryList"></div>
+    <div id="soilDateCard" class="card" style="display:none">
+      <span class="card-label">データを選択</span>
+      <div id="soilDateList"></div>
+    </div>
     <div class="card" id="soilChartCard" style="display:none">
       <span class="card-label">土壌バランスチャート</span>
       <div class="soil-chart-wrap"><canvas id="soilChart"></canvas></div>
@@ -276,6 +257,6 @@
 
 </main>
 
-<script src="app.js?v=13"></script>
+<script src="app.js?v=14"></script>
 </body>
 </html>
