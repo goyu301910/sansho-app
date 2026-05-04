@@ -48,6 +48,7 @@ async function initAuth() {
     const res = await fetch('./data/config.json', { cache: 'no-cache' });
     if (!res.ok) throw new Error();
     config = await res.json();
+    configUsers = config.users ?? {};
   } catch {
     document.body.innerHTML =
       '<div style="padding:48px;text-align:center;color:#999;font-size:15px">設定ファイルを読み込めませんでした</div>';
@@ -1253,6 +1254,7 @@ const SOIL_COLORS = [
 let remoteSoilEntries = [];
 let soilChart = null;
 let soilSelectedField = null;
+let configUsers = {}; // initAuth で設定
 
 async function loadSoilData() {
   try {
@@ -1261,8 +1263,17 @@ async function loadSoilData() {
   } catch (_) {}
 }
 
+const LOCAL_SOIL_KEY = 'sansho_soil_local';
+function loadLocalSoilEntries() {
+  try { return JSON.parse(localStorage.getItem(LOCAL_SOIL_KEY) ?? '[]'); } catch (_) { return []; }
+}
+function saveLocalSoilEntries(entries) {
+  try { localStorage.setItem(LOCAL_SOIL_KEY, JSON.stringify(entries)); } catch (_) {}
+}
+
 function getVisibleSoilEntries() {
-  return remoteSoilEntries
+  const local = authState.isAdmin ? loadLocalSoilEntries() : [];
+  return [...remoteSoilEntries, ...local]
     .filter(e => authState.isAdmin || e.user === authState.userKey)
     .sort((a, b) => a.date.localeCompare(b.date));
 }
@@ -1323,7 +1334,8 @@ function renderSoilDateList(entries) {
     <label class="soil-date-row">
       <input type="checkbox" class="soil-date-cb" data-idx="${i}">
       <span class="soil-date-dot" style="background:${SOIL_COLORS[i % SOIL_COLORS.length]}"></span>
-      <span class="soil-date-text">${e.date}</span>
+      <span class="soil-date-text">${e.date}${e.isLocal ? ' <span class="soil-local-badge">ローカル</span>' : ''}</span>
+      ${e.isLocal ? `<button class="soil-date-del btn-delete" data-id="${esc(e.id)}" title="削除">✕</button>` : ''}
       <span class="soil-date-check">✓</span>
     </label>`).join('');
 
@@ -1342,6 +1354,17 @@ function renderSoilDateList(entries) {
   dateList.querySelectorAll('.soil-date-cb').forEach(cb =>
     cb.addEventListener('change', updateChart)
   );
+
+  // ローカルエントリ削除
+  dateList.querySelectorAll('.soil-date-del').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.preventDefault(); e.stopPropagation();
+      if (!confirm('このデータを削除しますか？')) return;
+      const local = loadLocalSoilEntries().filter(x => x.id !== btn.dataset.id);
+      saveLocalSoilEntries(local);
+      renderSoilUI();
+    });
+  });
 
   document.getElementById('soilChartCard').style.display = 'none';
   document.getElementById('soilValTable').innerHTML = '';
@@ -1503,6 +1526,109 @@ function renderSoilChart(selected, allEntries) {
   document.getElementById('soilValTable').innerHTML = tableHtml;
 }
 
+// ---- Soil Admin Form (管理者のみ) -----------------------
+function initSoilAdminForm() {
+  const section = document.getElementById('tab-soil');
+
+  // 担当農家セレクト
+  const userOpts = Object.entries(configUsers)
+    .map(([k, u]) => `<option value="${esc(k)}">${esc(u.name)}</option>`)
+    .join('');
+
+  // パラメータ行
+  const paramRows = SOIL_CHART_PARAMS.map((p, idx) => `
+    <tr>
+      <td class="soil-param-name">${esc(p.key)}<br><span class="soil-unit">${p.unit}</span></td>
+      <td><input type="number" class="soil-inp soil-add-val" data-idx="${idx}" step="any" placeholder="—"></td>
+      <td><input type="number" class="soil-inp soil-add-min" data-idx="${idx}" step="any" placeholder="—"></td>
+      <td><input type="number" class="soil-inp soil-add-max" data-idx="${idx}" step="any" placeholder="—"></td>
+    </tr>`).join('');
+
+  section.insertAdjacentHTML('afterbegin', `
+    <div class="card" id="soilAddCard">
+      <span class="card-label">分析データを追加</span>
+      <div class="soil-meta-row" style="margin-bottom:10px">
+        <div class="soil-meta-item">
+          <label class="soil-meta-label">測定日</label>
+          <input type="date" id="soilAddDate">
+        </div>
+        <div class="soil-meta-item">
+          <label class="soil-meta-label">担当農家</label>
+          <select id="soilAddUser" class="soil-add-select">${userOpts}</select>
+        </div>
+      </div>
+      <div class="soil-meta-item" style="margin-bottom:12px">
+        <label class="soil-meta-label">圃場名</label>
+        <input type="text" id="soilAddField" list="soilAddFieldList"
+               placeholder="圃場名を入力または選択" class="soil-add-field-input">
+        <datalist id="soilAddFieldList"></datalist>
+      </div>
+      <div class="soil-table-wrap">
+        <table class="soil-table">
+          <thead>
+            <tr><th>成分</th><th>測定値</th><th>基準 最小</th><th>基準 最大</th></tr>
+          </thead>
+          <tbody>${paramRows}</tbody>
+        </table>
+      </div>
+      <button class="btn-primary" id="soilAddBtn" style="margin-top:12px">追加</button>
+    </div>`);
+
+  function updateFieldList() {
+    const userKey = document.getElementById('soilAddUser').value;
+    const fields  = configUsers[userKey]?.fields ?? [];
+    document.getElementById('soilAddFieldList').innerHTML =
+      fields.map(f => `<option value="${esc(f)}">`).join('');
+    document.getElementById('soilAddField').value = fields[0] ?? '';
+  }
+
+  document.getElementById('soilAddUser').addEventListener('change', updateFieldList);
+  updateFieldList(); // 初期値
+
+  document.getElementById('soilAddBtn').addEventListener('click', handleSoilAdd);
+}
+
+function handleSoilAdd() {
+  const date  = document.getElementById('soilAddDate').value;
+  const user  = document.getElementById('soilAddUser').value;
+  const field = document.getElementById('soilAddField').value.trim();
+
+  if (!date)  { alert('測定日を入力してください'); return; }
+  if (!field) { alert('圃場名を入力してください'); return; }
+
+  const values = {};
+  let hasAny = false;
+  SOIL_CHART_PARAMS.forEach((p, idx) => {
+    const vEl = document.querySelector(`.soil-add-val[data-idx="${idx}"]`);
+    const nEl = document.querySelector(`.soil-add-min[data-idx="${idx}"]`);
+    const xEl = document.querySelector(`.soil-add-max[data-idx="${idx}"]`);
+    const val = vEl?.value !== '' ? parseFloat(vEl.value) : null;
+    const min = nEl?.value !== '' ? parseFloat(nEl.value) : null;
+    const max = xEl?.value !== '' ? parseFloat(xEl.value) : null;
+    if (val !== null) hasAny = true;
+    values[p.key] = { val, refMin: min, refMax: max };
+  });
+
+  if (!hasAny) { alert('少なくとも1つの測定値を入力してください'); return; }
+
+  const entry = {
+    id: `local-${Date.now()}`,
+    date, field, user,
+    isLocal: true,
+    values,
+  };
+
+  const local = loadLocalSoilEntries();
+  local.push(entry);
+  saveLocalSoilEntries(local);
+
+  // 測定値のみリセット（日付・農家・圃場は保持）
+  document.querySelectorAll('#soilAddCard .soil-inp').forEach(el => { el.value = ''; });
+
+  renderSoilUI();
+  alert(`${field}（${date}）の土壌データを追加しました`);
+}
+
 // ---- Auto Fetch -----------------------------------------
 async function loadAutoData() {
   const statusEl = document.getElementById('autoFetchStatus');
@@ -1607,6 +1733,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // 土壌分析
   await loadSoilData();
+  if (authState.isAdmin) initSoilAdminForm();
   renderSoilUI();
 
   // 気象情報
