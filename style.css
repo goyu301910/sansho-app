@@ -895,6 +895,32 @@ main {
 .soil-date-row:has(input:checked) .soil-date-check { opacity: 1; }
 
 /* ===== 土壌追加フォーム（管理者用） ===== */
+/* PDF アップロード */
+.soil-pdf-section { margin-bottom: 4px; }
+.soil-pdf-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.soil-pdf-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.soil-pdf-status {
+  font-size: 12px;
+  color: var(--text-sub);
+  flex: 1;
+  min-width: 0;
+}
+.soil-pdf-status.ok  { color: var(--green); }
+.soil-pdf-status.err { color: var(--red); }
+
 .soil-add-select {
   width: 100%;
   padding: 8px 10px;

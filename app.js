@@ -1526,6 +1526,81 @@ function renderSoilChart(selected, allEntries) {
   document.getElementById('soilValTable').innerHTML = tableHtml;
 }
 
+// ---- Soil PDF Parser ------------------------------------
+async function parseSoilPDF(file) {
+  if (!window.pdfjsLib) throw new Error('PDF.jsが読み込まれていません');
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+    'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+  const tokens = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page    = await pdf.getPage(p);
+    const content = await page.getTextContent();
+    // y 降順（上から下）、同じ行は x 昇順で並べて行順を再現
+    const items = content.items
+      .filter(i => i.str.trim())
+      .sort((a, b) => {
+        const dy = b.transform[5] - a.transform[5];
+        return Math.abs(dy) > 3 ? dy : a.transform[4] - b.transform[4];
+      });
+    tokens.push(...items.map(i => i.str.trim()));
+  }
+  return extractSoilFromTokens(tokens);
+}
+
+function extractSoilFromTokens(tokens) {
+  const result  = { date: null, values: {} };
+  const fullText = tokens.join(' ');
+
+  // 日付を抽出（西暦 or 令和）
+  const m = fullText.match(/(\d{4})[年\/\-](\d{1,2})[月\/\-](\d{1,2})/);
+  if (m) result.date =
+    `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+  const mr = fullText.match(/令和\s*(\d+)\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})/);
+  if (mr && !result.date) {
+    const yr = 2018 + parseInt(mr[1]);
+    result.date = `${yr}-${String(mr[2]).padStart(2,'0')}-${String(mr[3]).padStart(2,'0')}`;
+  }
+
+  // パラメータ名と検索ワード
+  const PARAM_KW = [
+    { key: '窒素',        words: ['窒素'] },
+    { key: 'りん酸',      words: ['りん酸', 'リン酸', '燐酸'] },
+    { key: '加里',        words: ['加里', 'カリウム', 'カリ'] },
+    { key: '石灰',        words: ['石灰'] },
+    { key: '苦土',        words: ['苦土', 'マグネシウム'] },
+    { key: '石灰/苦土比', words: ['石灰/苦土', '石灰苦土比', 'Ca/Mg', 'CaO/MgO'] },
+    { key: '苦土/加里比', words: ['苦土/加里', '苦土加里比', 'Mg/K', 'MgO/K2O'] },
+  ];
+
+  // 数値トークンかどうか
+  const isNum = s => /^[\d]+\.?[\d]*$/.test(s.replace(/,/g, ''));
+  const toNum = s => parseFloat(s.replace(/,/g, ''));
+
+  for (const { key, words } of PARAM_KW) {
+    for (let i = 0; i < tokens.length; i++) {
+      if (!words.some(w => tokens[i].includes(w))) continue;
+      // キーワード発見後、数値を最大 3 つ拾う
+      const nums = [];
+      for (let j = i + 1; j < Math.min(i + 15, tokens.length) && nums.length < 3; j++) {
+        if (isNum(tokens[j])) nums.push(toNum(tokens[j]));
+      }
+      if (nums.length) {
+        result.values[key] = {
+          val:    nums[0] ?? null,
+          refMin: nums[1] ?? null,
+          refMax: nums[2] ?? null,
+        };
+      }
+      break;
+    }
+  }
+  return result;
+}
+
 // ---- Soil Admin Form (管理者のみ) -----------------------
 function initSoilAdminForm() {
   const section = document.getElementById('tab-soil');
@@ -1547,6 +1622,20 @@ function initSoilAdminForm() {
   section.insertAdjacentHTML('afterbegin', `
     <div class="card" id="soilAddCard">
       <span class="card-label">分析データを追加</span>
+
+      <div class="soil-pdf-section">
+        <label class="soil-meta-label">PDFから読み込む</label>
+        <div class="soil-pdf-row">
+          <label class="btn-secondary soil-pdf-label" for="soilPdfInput">
+            📄 PDFを選択
+          </label>
+          <input type="file" id="soilPdfInput" accept=".pdf" style="display:none">
+          <span id="soilPdfStatus" class="soil-pdf-status"></span>
+        </div>
+      </div>
+
+      <div class="section-divider" style="margin:14px 0 12px">確認・修正</div>
+
       <div class="soil-meta-row" style="margin-bottom:10px">
         <div class="soil-meta-item">
           <label class="soil-meta-label">測定日</label>
@@ -1584,6 +1673,43 @@ function initSoilAdminForm() {
 
   document.getElementById('soilAddUser').addEventListener('change', updateFieldList);
   updateFieldList(); // 初期値
+
+  // PDF アップロード → 自動入力
+  document.getElementById('soilPdfInput').addEventListener('change', async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const statusEl = document.getElementById('soilPdfStatus');
+    statusEl.textContent = '解析中...';
+    statusEl.className = 'soil-pdf-status';
+    try {
+      const extracted = await parseSoilPDF(file);
+
+      // 日付
+      if (extracted.date) document.getElementById('soilAddDate').value = extracted.date;
+
+      // 測定値・基準値
+      let filled = 0;
+      SOIL_CHART_PARAMS.forEach((p, idx) => {
+        const v = extracted.values[p.key];
+        if (!v) return;
+        const vEl = document.querySelector(`.soil-add-val[data-idx="${idx}"]`);
+        const nEl = document.querySelector(`.soil-add-min[data-idx="${idx}"]`);
+        const xEl = document.querySelector(`.soil-add-max[data-idx="${idx}"]`);
+        if (v.val    != null && vEl) { vEl.value = v.val;    filled++; }
+        if (v.refMin != null && nEl)   nEl.value = v.refMin;
+        if (v.refMax != null && xEl)   xEl.value = v.refMax;
+      });
+
+      statusEl.textContent = filled > 0
+        ? `✓ ${filled}項目を自動入力しました。内容を確認・修正してから「追加」してください。`
+        : '数値を自動抽出できませんでした。手動で入力してください。';
+      statusEl.className = `soil-pdf-status ${filled > 0 ? 'ok' : 'err'}`;
+    } catch (err) {
+      statusEl.textContent = `✗ PDF解析エラー: ${err.message}`;
+      statusEl.className = 'soil-pdf-status err';
+    }
+    e.target.value = '';
+  });
 
   document.getElementById('soilAddBtn').addEventListener('click', handleSoilAdd);
 }
