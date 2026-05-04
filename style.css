@@ -866,16 +866,33 @@ main {
   cursor: pointer;
   transition: background 0.15s;
   margin-bottom: 4px;
+  border: 1.5px solid transparent;
 }
 .soil-date-row:hover { background: var(--green-pale); }
-.soil-date-row input[type="radio"] { display: none; }
-.soil-date-row input[type="radio"]:checked + .soil-date-dot { box-shadow: 0 0 0 2px #fff, 0 0 0 4px currentColor; }
+.soil-date-row input[type="checkbox"] { display: none; }
+.soil-date-row input[type="checkbox"]:checked ~ .soil-date-text { font-weight: 800; }
+.soil-date-row:has(input:checked) {
+  background: var(--green-pale);
+  border-color: var(--green-light);
+}
 .soil-date-dot {
   width: 12px; height: 12px;
   border-radius: 50%;
   flex-shrink: 0;
+  transition: box-shadow 0.15s;
 }
-.soil-date-text { font-size: 14px; font-weight: 600; }
+.soil-date-row:has(input:checked) .soil-date-dot {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--green);
+}
+.soil-date-text { font-size: 14px; font-weight: 600; flex: 1; }
+.soil-date-check {
+  font-size: 13px;
+  color: var(--green);
+  font-weight: 700;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.soil-date-row:has(input:checked) .soil-date-check { opacity: 1; }
 
 /* ===== 土壌数値テーブル ===== */
 #soilValTable { margin-top: 20px; display: flex; flex-direction: column; gap: 16px; }

@@ -1321,19 +1321,30 @@ function renderSoilDateList(entries) {
 
   dateList.innerHTML = entries.map((e, i) => `
     <label class="soil-date-row">
-      <input type="radio" name="soilDate" class="soil-date-cb" data-idx="${i}">
+      <input type="checkbox" class="soil-date-cb" data-idx="${i}">
       <span class="soil-date-dot" style="background:${SOIL_COLORS[i % SOIL_COLORS.length]}"></span>
       <span class="soil-date-text">${e.date}</span>
+      <span class="soil-date-check">✓</span>
     </label>`).join('');
 
+  function updateChart() {
+    const checked = [...dateList.querySelectorAll('.soil-date-cb:checked')];
+    const selectedEntries = checked.map(c => entries[parseInt(c.dataset.idx)]);
+    if (selectedEntries.length) {
+      renderSoilChart(selectedEntries, entries);
+    } else {
+      document.getElementById('soilChartCard').style.display = 'none';
+      document.getElementById('soilValTable').innerHTML = '';
+      if (soilChart) { soilChart.destroy(); soilChart = null; }
+    }
+  }
+
   dateList.querySelectorAll('.soil-date-cb').forEach(cb =>
-    cb.addEventListener('change', () => {
-      const idx = parseInt(cb.dataset.idx);
-      renderSoilChart([entries[idx]], entries);
-    })
+    cb.addEventListener('change', updateChart)
   );
 
   document.getElementById('soilChartCard').style.display = 'none';
+  document.getElementById('soilValTable').innerHTML = '';
   if (soilChart) { soilChart.destroy(); soilChart = null; }
 }
 
