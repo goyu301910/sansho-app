@@ -1433,6 +1433,63 @@ function renderSoilChart(selected, allEntries) {
       },
     },
   });
+
+  // ---- 数値テーブル ----
+  const ZONE_META = {
+    '低':   { cls: 'soil-zone-low',  label: '低↓' },
+    '基準内': { cls: 'soil-zone-ok',   label: '基準内' },
+    '高':   { cls: 'soil-zone-high', label: '高↑' },
+  };
+
+  let tableHtml = '';
+  for (const entry of selected) {
+    const colorIdx = allEntries.findIndex(e => e.id === entry.id);
+    const color = SOIL_COLORS[colorIdx % SOIL_COLORS.length];
+
+    tableHtml += `
+      <div class="soil-val-header">
+        <span class="soil-val-dot" style="background:${color}"></span>
+        <span class="soil-val-date">${entry.date}</span>
+        ${entry.field ? `<span class="soil-val-field">${esc(entry.field)}</span>` : ''}
+      </div>
+      <div class="soil-val-table-wrap">
+        <table class="soil-val-table">
+          <thead>
+            <tr>
+              <th>成分</th>
+              <th>測定値</th>
+              <th>基準値</th>
+              <th>判定</th>
+            </tr>
+          </thead>
+          <tbody>`;
+
+    for (const p of SOIL_CHART_PARAMS) {
+      const v = entry.values[p.key];
+      if (!v) continue;
+      const score = soilScore(v.val, v.refMin, v.refMax);
+      const zoneName = score === null ? null : score < 1 ? '低' : score <= 2 ? '基準内' : '高';
+      const zm = zoneName ? ZONE_META[zoneName] : null;
+      const refText = (v.refMin !== null && v.refMax !== null)
+        ? `${v.refMin}〜${v.refMax}`
+        : '—';
+
+      tableHtml += `
+            <tr>
+              <td class="soil-vt-name">${esc(p.key)}<span class="soil-vt-unit"> ${p.unit}</span></td>
+              <td class="soil-vt-val">${v.val}</td>
+              <td class="soil-vt-ref">${refText}</td>
+              <td>${zm ? `<span class="soil-zone-badge ${zm.cls}">${zm.label}</span>` : '—'}</td>
+            </tr>`;
+    }
+
+    tableHtml += `
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  document.getElementById('soilValTable').innerHTML = tableHtml;
 }
 
 // ---- Auto Fetch -----------------------------------------
